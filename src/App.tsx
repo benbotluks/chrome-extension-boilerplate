@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import * as chat from '@botpress/chat'
+import { Client } from '@botpress/client'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
@@ -22,26 +22,7 @@ function App() {
         <button onClick={
           async () => {
             setCount((count) => count + 1)
-            const webhookId = import.meta.env.VITE_WEBHOOK_ID
-            if (!webhookId) {
-              throw new Error('WEBHOOK_ID is required')
-            }
-
-            // 0. connect and create a user
-            const client = await chat.Client.connect({ webhookId })
-
-            // 1. create a conversation
-            const { conversation } = await client.createConversation({})
-
-            // 2. send a message
-            const response = await client.createMessage({
-              conversationId: conversation.id,
-              payload: {
-                type: 'text',
-                text: 'hello world',
-              },
-            })
-            console.log(response)
+            await getMessages()
           }
         }>
           count is {count}
@@ -55,6 +36,21 @@ function App() {
       </p>
     </>
   )
+}
+
+const getMessages = async () => {
+  const token = import.meta.env.VITE_BOTPRESS_PAT
+  const botId = import.meta.env.VITE_BOT_ID
+
+  const client = new Client({
+    token,
+    botId,
+  })
+
+  const { messages } = await client.listMessages({})
+  const conversation = await client.getConversation({ id: messages[0].conversationId })
+  console.log(client)
+  console.log(conversation)
 }
 
 export default App
