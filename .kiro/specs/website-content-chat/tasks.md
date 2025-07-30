@@ -7,7 +7,7 @@
   - Define content type enums and extraction constants
   - _Requirements: 1.1, 2.1, 3.1_
 
-- [ ] 2. Implement Chrome extension storage service
+- [x] 2. Implement Chrome extension storage service
 
   - Create storage service class with methods for local and sync storage operations
   - Implement secure credential storage with encryption for PAT tokens
@@ -15,7 +15,7 @@
   - Write unit tests for storage operations and error handling
   - _Requirements: 6.1, 6.2, 6.4, 8.2_
 
-- [ ] 3. Create Botpress runtime API service
+- [-] 3. Create Botpress runtime API service
 
   - Implement BotpressService class using @botpress/client with PAT authentication
   - Add methods for creating conversations, sending messages, and retrieving responses

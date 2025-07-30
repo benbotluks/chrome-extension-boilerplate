@@ -11,6 +11,7 @@ export interface BotpressConfig {
   token: string; // Personal Access Token
   botId: string;
   isConfigured: boolean;
+  userId?: string;
 }
 
 export interface PageMetadata {
