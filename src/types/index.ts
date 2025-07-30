@@ -60,3 +60,20 @@ export interface ConversationSession {
   createdAt: Date;
   lastActivity: Date;
 }
+export interface StorageQuota {
+  used: number;
+  available: number;
+  percentage: number;
+}
+
+export interface StorageConfig {
+  maxConversations: number;
+  maxMessageHistory: number;
+  cleanupThresholdDays: number;
+}
+
+export interface EncryptedData {
+  data: string;
+  iv: string;
+  salt: string;
+}
