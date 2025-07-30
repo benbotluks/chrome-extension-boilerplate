@@ -15,7 +15,7 @@
   - Write unit tests for storage operations and error handling
   - _Requirements: 6.1, 6.2, 6.4, 8.2_
 
-- [-] 3. Create Botpress runtime API service
+- [x] 3. Create Botpress runtime API service
 
   - Implement BotpressService class using @botpress/client with PAT authentication
   - Add methods for creating conversations, sending messages, and retrieving responses

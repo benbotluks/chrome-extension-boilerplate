@@ -1,4 +1,4 @@
-import { Client } from "@botpress/client";
+import * as chat from "@botpress/chat";
 import type {
   BotpressConfig,
   ChatMessage,
@@ -13,7 +13,7 @@ export interface BotpressServiceError {
 }
 
 export class BotpressService {
-  private client: Client | null = null;
+  private client: chat.AuthenticatedClient | null = null;
   private config: BotpressConfig | null = null;
 
   constructor(config?: BotpressConfig) {
@@ -25,12 +25,11 @@ export class BotpressService {
   /**
    * Configure the service with Botpress credentials
    */
-  configure(config: BotpressConfig): void {
+  async configure(config: BotpressConfig): Promise<void> {
     this.config = config;
-    if (config.token && config.botId && config.isConfigured) {
-      this.client = new Client({
-        token: config.token,
-        botId: this.config.botId,
+    if (config.webhookId && config.isConfigured) {
+      this.client = await chat.Client.connect({
+        webhookId: config.webhookId,
       });
     }
   }
@@ -54,38 +53,13 @@ export class BotpressService {
 
     try {
       // Test connection by attempting to get bot info
-      await this.client.getBot({ id: this.config.botId });
+      await this.client.listConversations({});
       return { success: true };
     } catch (error: any) {
       return {
         success: false,
         error: this.handleError(error),
       };
-    }
-  }
-
-  async getOrCreateUser(): Promise<{
-    userId?: string;
-    error?: BotpressServiceError;
-  }> {
-    if (!this.client || !this.config) {
-      return {
-        error: {
-          type: "authentication",
-          message: "Service not configured",
-        },
-      };
-    }
-
-    try {
-      const response = await this.client.getOrCreateUser({
-        name: "userName",
-        tags: {},
-      });
-
-      return { userId: response.user.id };
-    } catch (error: any) {
-      return { error: this.handleError(error) };
     }
   }
 
@@ -106,10 +80,7 @@ export class BotpressService {
     }
 
     try {
-      const response = await this.client.createConversation({
-        channel: "chrome-ext",
-        tags: {},
-      });
+      const response = await this.client.createConversation({});
 
       return { conversationId: response.conversation.id };
     } catch (error: any) {
@@ -154,27 +125,10 @@ User Question: ${content}`;
 
         messageContent = contextInfo;
       }
-      if (!this.config.userId) {
-        const { userId } = await this.getOrCreateUser();
-        this.config.userId = userId;
-      }
-      if (!this.config.userId) {
-        return {
-          success: false,
-          error: {
-            type: "authentication",
-            message: "No userId on configuration object",
-          },
-        };
-      }
 
       await this.client.createMessage({
         conversationId,
-        userId: this.config.userId,
-        payload: { text: messageContent },
-        type: "text",
-
-        tags: {},
+        payload: { type: "text", text: messageContent },
       });
 
       return { success: true };
@@ -347,7 +301,7 @@ User Question: ${content}`;
    * Check if the service is properly configured
    */
   isConfigured(): boolean {
-    return !!(this.client && this.config?.token && this.config?.botId);
+    return !!this.client;
   }
 
   /**

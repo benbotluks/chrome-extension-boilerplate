@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Client } from '@botpress/client'
+import * as chat from '@botpress/chat'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
@@ -39,18 +39,17 @@ function App() {
 }
 
 const getMessages = async () => {
-  const token = import.meta.env.VITE_BOTPRESS_PAT
-  const botId = import.meta.env.VITE_BOT_ID
+  const webhookId = import.meta.env.VITE_WEBHOOK_ID
 
-  const client = new Client({
-    token,
-    botId,
+  const client = await chat.Client.connect({
+    webhookId
   })
 
-  const { messages } = await client.listMessages({})
-  const conversation = await client.getConversation({ id: messages[0].conversationId })
-  console.log(client)
+  const { conversation } = await client.createConversation({})
+  const { messages } = await client.listMessages({ conversationId: conversation.id })
+  // const conversation = await client.getConversation({ id: messages[0].conversationId })
   console.log(conversation)
+  console.log(messages)
 }
 
 export default App

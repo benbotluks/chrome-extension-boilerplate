@@ -8,10 +8,8 @@ export type ContentType =
   | "generic";
 
 export interface BotpressConfig {
-  token: string; // Personal Access Token
-  botId: string;
+  webhookId: string;
   isConfigured: boolean;
-  userId?: string;
 }
 
 export interface PageMetadata {

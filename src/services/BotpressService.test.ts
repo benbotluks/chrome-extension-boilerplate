@@ -2,35 +2,51 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BotpressService } from "./BotpressService";
 import type { BotpressConfig, PageContent } from "../types";
 
-// Mock the @botpress/client
-const mockClient = {
-  getBot: vi.fn(),
+// Create a mock client that we can control
+const createMockClient = () => ({
   createConversation: vi.fn(),
   createMessage: vi.fn(),
   listMessages: vi.fn(),
   listConversations: vi.fn(),
   deleteConversation: vi.fn(),
-};
+});
 
-const MockClient = vi.fn().mockImplementation(() => mockClient);
+// Mock the @botpress/chat module
+vi.mock("@botpress/chat", () => {
+  let mockClient: any = null;
 
-vi.mock("@botpress/client", () => ({
-  Client: MockClient,
-}));
+  return {
+    Client: {
+      connect: vi.fn().mockImplementation(async () => {
+        mockClient = createMockClient();
+        return mockClient;
+      }),
+    },
+    // Export a way to get the current mock client for testing
+    __getMockClient: () => mockClient,
+  };
+});
 
 describe("BotpressService", () => {
   let service: BotpressService;
   let mockConfig: BotpressConfig;
+  let mockClient: any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Import the chat module to get access to the mock
+    const chatModule = (await import("@botpress/chat")) as any;
+
     service = new BotpressService();
     mockConfig = {
-      token: "test-token",
-      botId: "test-bot-id",
+      webhookId: "test-webhook-id",
       isConfigured: true,
     };
 
-    // Reset all mocks
+    // Configure the service to get the mock client
+    await service.configure(mockConfig);
+    mockClient = chatModule.__getMockClient();
+
+    // Reset all mocks after configuration
     vi.clearAllMocks();
   });
 
@@ -39,36 +55,46 @@ describe("BotpressService", () => {
   });
 
   describe("configure", () => {
-    it("should configure the service with valid config", () => {
-      service.configure(mockConfig);
+    it("should configure the service with valid config", async () => {
+      const newService = new BotpressService();
+      const chatModule = (await import("@botpress/chat")) as any;
 
-      expect(service.isConfigured()).toBe(true);
-      expect(service.getConfig()).toEqual(mockConfig);
-      expect(MockClient).toHaveBeenCalledWith({ token: "test-token" });
+      await newService.configure(mockConfig);
+
+      expect(newService.isConfigured()).toBe(true);
+      expect(newService.getConfig()).toEqual(mockConfig);
+      expect(chatModule.Client.connect).toHaveBeenCalledWith({
+        webhookId: "test-webhook-id",
+      });
     });
 
-    it("should not be configured with invalid config", () => {
-      const invalidConfig = { token: "", botId: "", isConfigured: false };
-      service.configure(invalidConfig);
+    it("should not be configured with invalid config", async () => {
+      const newService = new BotpressService();
+      const chatModule = (await import("@botpress/chat")) as any;
+      const invalidConfig = { webhookId: "", isConfigured: false };
 
-      expect(service.isConfigured()).toBe(false);
+      await newService.configure(invalidConfig);
+
+      expect(newService.isConfigured()).toBe(false);
+      // Should not call connect for invalid config
+      expect(chatModule.Client.connect).not.toHaveBeenCalled();
     });
   });
 
   describe("testConnection", () => {
     it("should return success when connection is valid", async () => {
-      service.configure(mockConfig);
-      mockClient.getBot.mockResolvedValue({ id: "test-bot-id" });
+      mockClient.listConversations.mockResolvedValue({ conversations: [] });
 
       const result = await service.testConnection();
 
       expect(result.success).toBe(true);
       expect(result.error).toBeUndefined();
-      expect(mockClient.getBot).toHaveBeenCalledWith({ id: "test-bot-id" });
+      expect(mockClient.listConversations).toHaveBeenCalledWith({});
     });
 
     it("should return error when service is not configured", async () => {
-      const result = await service.testConnection();
+      const unconfiguredService = new BotpressService();
+      const result = await unconfiguredService.testConnection();
 
       expect(result.success).toBe(false);
       expect(result.error?.type).toBe("authentication");
@@ -76,10 +102,9 @@ describe("BotpressService", () => {
     });
 
     it("should handle authentication errors", async () => {
-      service.configure(mockConfig);
       const authError = new Error("Unauthorized");
       (authError as any).status = 401;
-      mockClient.getBot.mockRejectedValue(authError);
+      mockClient.listConversations.mockRejectedValue(authError);
 
       const result = await service.testConnection();
 
@@ -88,10 +113,9 @@ describe("BotpressService", () => {
     });
 
     it("should handle network errors", async () => {
-      service.configure(mockConfig);
       const networkError = new Error("fetch failed");
       (networkError as any).code = "NETWORK_ERROR";
-      mockClient.getBot.mockRejectedValue(networkError);
+      mockClient.listConversations.mockRejectedValue(networkError);
 
       const result = await service.testConnection();
 
@@ -102,7 +126,6 @@ describe("BotpressService", () => {
 
   describe("createConversation", () => {
     it("should create a conversation successfully", async () => {
-      service.configure(mockConfig);
       const mockConversation = { id: "conv-123" };
       mockClient.createConversation.mockResolvedValue({
         conversation: mockConversation,
@@ -112,20 +135,18 @@ describe("BotpressService", () => {
 
       expect(result.conversationId).toBe("conv-123");
       expect(result.error).toBeUndefined();
-      expect(mockClient.createConversation).toHaveBeenCalledWith({
-        botId: "test-bot-id",
-      });
+      expect(mockClient.createConversation).toHaveBeenCalledWith({});
     });
 
     it("should return error when service is not configured", async () => {
-      const result = await service.createConversation();
+      const unconfiguredService = new BotpressService();
+      const result = await unconfiguredService.createConversation();
 
       expect(result.conversationId).toBeUndefined();
       expect(result.error?.type).toBe("authentication");
     });
 
     it("should handle API errors", async () => {
-      service.configure(mockConfig);
       const apiError = new Error("Bad request");
       (apiError as any).status = 400;
       mockClient.createConversation.mockRejectedValue(apiError);
@@ -142,7 +163,6 @@ describe("BotpressService", () => {
     const message = "Hello, bot!";
 
     it("should send a message successfully", async () => {
-      service.configure(mockConfig);
       mockClient.createMessage.mockResolvedValue({});
 
       const result = await service.sendMessage(conversationId, message);
@@ -151,7 +171,6 @@ describe("BotpressService", () => {
       expect(result.error).toBeUndefined();
       expect(mockClient.createMessage).toHaveBeenCalledWith({
         conversationId,
-        userId: "user",
         payload: {
           type: "text",
           text: message,
@@ -160,7 +179,6 @@ describe("BotpressService", () => {
     });
 
     it("should send a message with page context", async () => {
-      service.configure(mockConfig);
       mockClient.createMessage.mockResolvedValue({});
 
       const pageContext: PageContent = {
@@ -182,7 +200,6 @@ describe("BotpressService", () => {
       expect(result.success).toBe(true);
       expect(mockClient.createMessage).toHaveBeenCalledWith({
         conversationId,
-        userId: "user",
         payload: {
           type: "text",
           text: expect.stringContaining("Page Context:"),
@@ -191,14 +208,17 @@ describe("BotpressService", () => {
     });
 
     it("should return error when service is not configured", async () => {
-      const result = await service.sendMessage(conversationId, message);
+      const unconfiguredService = new BotpressService();
+      const result = await unconfiguredService.sendMessage(
+        conversationId,
+        message
+      );
 
       expect(result.success).toBe(false);
       expect(result.error?.type).toBe("authentication");
     });
 
     it("should handle rate limiting errors", async () => {
-      service.configure(mockConfig);
       const rateLimitError = new Error("Too many requests");
       (rateLimitError as any).status = 429;
       mockClient.createMessage.mockRejectedValue(rateLimitError);
@@ -214,7 +234,6 @@ describe("BotpressService", () => {
     const conversationId = "conv-123";
 
     it("should retrieve messages successfully", async () => {
-      service.configure(mockConfig);
       const mockMessages = [
         {
           id: "msg-1",
@@ -248,7 +267,6 @@ describe("BotpressService", () => {
     });
 
     it("should handle non-text messages", async () => {
-      service.configure(mockConfig);
       const mockMessages = [
         {
           id: "msg-1",
@@ -265,7 +283,8 @@ describe("BotpressService", () => {
     });
 
     it("should return error when service is not configured", async () => {
-      const result = await service.getMessages(conversationId);
+      const unconfiguredService = new BotpressService();
+      const result = await unconfiguredService.getMessages(conversationId);
 
       expect(result.messages).toBeUndefined();
       expect(result.error?.type).toBe("authentication");
@@ -274,7 +293,6 @@ describe("BotpressService", () => {
 
   describe("listConversations", () => {
     it("should list conversations successfully", async () => {
-      service.configure(mockConfig);
       const mockConversations = [
         {
           id: "conv-1",
@@ -298,7 +316,8 @@ describe("BotpressService", () => {
     });
 
     it("should return error when service is not configured", async () => {
-      const result = await service.listConversations();
+      const unconfiguredService = new BotpressService();
+      const result = await unconfiguredService.listConversations();
 
       expect(result.conversations).toBeUndefined();
       expect(result.error?.type).toBe("authentication");
@@ -309,7 +328,6 @@ describe("BotpressService", () => {
     const conversationId = "conv-123";
 
     it("should delete conversation successfully", async () => {
-      service.configure(mockConfig);
       mockClient.deleteConversation.mockResolvedValue({});
 
       const result = await service.deleteConversation(conversationId);
@@ -322,7 +340,10 @@ describe("BotpressService", () => {
     });
 
     it("should return error when service is not configured", async () => {
-      const result = await service.deleteConversation(conversationId);
+      const unconfiguredService = new BotpressService();
+      const result = await unconfiguredService.deleteConversation(
+        conversationId
+      );
 
       expect(result.success).toBe(false);
       expect(result.error?.type).toBe("authentication");
@@ -330,13 +351,9 @@ describe("BotpressService", () => {
   });
 
   describe("error handling", () => {
-    beforeEach(() => {
-      service.configure(mockConfig);
-    });
-
     it("should categorize network errors correctly", async () => {
       const networkError = new Error("fetch failed");
-      mockClient.getBot.mockRejectedValue(networkError);
+      mockClient.listConversations.mockRejectedValue(networkError);
 
       const result = await service.testConnection();
 
@@ -347,7 +364,7 @@ describe("BotpressService", () => {
     it("should categorize authentication errors correctly", async () => {
       const authError = new Error("Forbidden");
       (authError as any).status = 403;
-      mockClient.getBot.mockRejectedValue(authError);
+      mockClient.listConversations.mockRejectedValue(authError);
 
       const result = await service.testConnection();
 
@@ -367,20 +384,20 @@ describe("BotpressService", () => {
     });
 
     it("should categorize validation errors correctly", async () => {
-      const validationError = new Error("Invalid bot ID");
+      const validationError = new Error("Invalid webhook ID");
       (validationError as any).status = 400;
       mockClient.createConversation.mockRejectedValue(validationError);
 
       const result = await service.createConversation();
 
       expect(result.error?.type).toBe("validation");
-      expect(result.error?.message).toBe("Invalid bot ID");
+      expect(result.error?.message).toBe("Invalid webhook ID");
     });
 
     it("should categorize unknown errors correctly", async () => {
       const unknownError = new Error("Internal server error");
       (unknownError as any).status = 500;
-      mockClient.getBot.mockRejectedValue(unknownError);
+      mockClient.listConversations.mockRejectedValue(unknownError);
 
       const result = await service.testConnection();
 
@@ -390,21 +407,23 @@ describe("BotpressService", () => {
   });
 
   describe("utility methods", () => {
-    it("should check configuration status correctly", () => {
-      expect(service.isConfigured()).toBe(false);
+    it("should check configuration status correctly", async () => {
+      const newService = new BotpressService();
+      expect(newService.isConfigured()).toBe(false);
 
-      service.configure(mockConfig);
-      expect(service.isConfigured()).toBe(true);
+      await newService.configure(mockConfig);
+      expect(newService.isConfigured()).toBe(true);
 
-      service.configure({ token: "", botId: "", isConfigured: false });
-      expect(service.isConfigured()).toBe(false);
+      await newService.configure({ webhookId: "", isConfigured: false });
+      expect(newService.isConfigured()).toBe(false);
     });
 
-    it("should return current configuration", () => {
-      expect(service.getConfig()).toBeNull();
+    it("should return current configuration", async () => {
+      const newService = new BotpressService();
+      expect(newService.getConfig()).toBeNull();
 
-      service.configure(mockConfig);
-      expect(service.getConfig()).toEqual(mockConfig);
+      await newService.configure(mockConfig);
+      expect(newService.getConfig()).toEqual(mockConfig);
     });
   });
 });
