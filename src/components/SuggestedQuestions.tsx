@@ -79,20 +79,27 @@ const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({
   }
 
   return (
-    <div className="suggested-questions">
-      <div className="questions-header">
-        <span className="questions-icon">💡</span>
-        <span className="questions-title">Suggested questions</span>
+    <div className="bg-bootstrap-gray-100 border-t border-bootstrap-gray-300 p-4 max-sm:p-3">
+      <div className="flex items-center gap-2 mb-3 max-sm:mb-2.5">
+        <span className="text-base">💡</span>
+        <span className="text-sm font-semibold text-bootstrap-gray-700 max-sm:text-[13px]">Suggested questions</span>
       </div>
       
-      <div className="questions-grid">
+      <div className="grid grid-cols-2 gap-2 mb-3 max-sm:grid-cols-1 max-sm:gap-1.5">
         {questions.map((question, index) => (
           <button
             key={index}
             onClick={() => handleQuestionClick(question)}
             disabled={disabled}
-            className={`question-button ${disabled ? 'question-button-disabled' : ''}`}
+            className={`bg-white border border-bootstrap-gray-300 rounded-lg px-3 py-2.5 text-[13px] leading-tight text-left cursor-pointer transition-all duration-200 text-bootstrap-gray-700 overflow-hidden min-h-11 max-sm:px-2.5 max-sm:py-2 max-sm:text-xs max-sm:min-h-10 hover:bg-bootstrap-gray-200 hover:border-bootstrap-gray-500 hover:-translate-y-px hover:shadow-md active:translate-y-0 active:shadow-sm disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none ${
+              disabled ? '' : ''
+            }`}
             title={question}
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical'
+            }}
           >
             {question}
           </button>
@@ -100,139 +107,17 @@ const SuggestedQuestions: React.FC<SuggestedQuestionsProps> = ({
       </div>
 
       {pageContent && (
-        <div className="content-info">
-          <span className="content-type-badge">
+        <div className="flex items-center justify-between text-xs text-bootstrap-gray-600 max-[320px]:flex-col max-[320px]:items-start max-[320px]:gap-1">
+          <span className="bg-bootstrap-primary text-white px-1.5 py-0.5 rounded font-medium capitalize">
             {pageContent.contentType}
           </span>
-          <span className="content-domain">
+          <span className="opacity-80 font-medium">
             {pageContent.domain}
           </span>
         </div>
       )}
 
-      <style>{`
-        .suggested-questions {
-          background: #f8f9fa;
-          border-top: 1px solid #e1e5e9;
-          padding: 16px;
-        }
 
-        .questions-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          margin-bottom: 12px;
-        }
-
-        .questions-icon {
-          font-size: 16px;
-        }
-
-        .questions-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #495057;
-        }
-
-        .questions-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 8px;
-          margin-bottom: 12px;
-        }
-
-        .question-button {
-          background: white;
-          border: 1px solid #dee2e6;
-          border-radius: 8px;
-          padding: 10px 12px;
-          font-size: 13px;
-          line-height: 1.3;
-          text-align: left;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          color: #495057;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          min-height: 44px;
-        }
-
-        .question-button:hover:not(:disabled) {
-          background: #e9ecef;
-          border-color: #adb5bd;
-          transform: translateY(-1px);
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .question-button:active:not(:disabled) {
-          transform: translateY(0);
-          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-        }
-
-        .question-button-disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .content-info {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 11px;
-          color: #6c757d;
-        }
-
-        .content-type-badge {
-          background: #007bff;
-          color: white;
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-weight: 500;
-          text-transform: capitalize;
-        }
-
-        .content-domain {
-          opacity: 0.8;
-          font-weight: 500;
-        }
-
-        /* Mobile responsiveness */
-        @media (max-width: 480px) {
-          .suggested-questions {
-            padding: 12px;
-          }
-
-          .questions-grid {
-            grid-template-columns: 1fr;
-            gap: 6px;
-          }
-
-          .question-button {
-            padding: 8px 10px;
-            font-size: 12px;
-            min-height: 40px;
-          }
-
-          .questions-header {
-            margin-bottom: 10px;
-          }
-
-          .questions-title {
-            font-size: 13px;
-          }
-        }
-
-        /* Single column layout for very narrow screens */
-        @media (max-width: 320px) {
-          .content-info {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 4px;
-          }
-        }
-      `}</style>
     </div>
   );
 };

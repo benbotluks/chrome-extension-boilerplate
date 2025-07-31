@@ -16,12 +16,24 @@ export default defineConfig({
   ],
   css: {
     postcss: "./postcss.config.js",
+    // Optimize CSS for production
+    devSourcemap: false,
   },
   build: {
     outDir: "build",
+    // Optimize for Chrome extension
+    minify: "terser",
+    cssMinify: true,
     rollupOptions: {
       input: {
         main: "./index.html",
+      },
+      output: {
+        // Optimize chunk splitting for better caching
+        manualChunks: undefined,
+        assetFileNames: "assets/[name]-[hash][extname]",
+        chunkFileNames: "assets/[name]-[hash].js",
+        entryFileNames: "assets/[name]-[hash].js",
       },
     },
   },

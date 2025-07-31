@@ -24,7 +24,7 @@ type AppView = 'loading' | 'configuration' | 'chat';
 function App() {
   const [currentView, setCurrentView] = useState<AppView>('loading');
   const [pageContent] = useState<PageContent>(mockPageContent);
-  
+
   const { isConfigured, configure } = useBotpressChat(pageContent);
 
   // Initialize the app
@@ -32,7 +32,7 @@ function App() {
     const initializeApp = async () => {
       // Simulate loading time
       await new Promise(resolve => setTimeout(resolve, 500));
-      
+
       if (isConfigured) {
         setCurrentView('chat');
       } else {
@@ -65,9 +65,9 @@ function App() {
 
   if (currentView === 'loading') {
     return (
-      <div className="flex flex-col antialiased bg-white overflow-hidden" style={{ width: '400px', height: '600px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif' }}>
-        <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: '#495057' }}>
-          <div className="w-8 h-8 border-3 rounded-full animate-spin" style={{ borderColor: '#e9ecef', borderTopColor: '#007bff' }} />
+      <div className="w-extension h-extension flex flex-col font-system antialiased bg-white overflow-hidden">
+        <div className="h-full flex flex-col items-center justify-center gap-4 text-bootstrap-gray-700">
+          <div className="w-8 h-8 border-3 border-bootstrap-gray-200 border-t-bootstrap-primary rounded-full animate-spin" />
           <p className="m-0 text-sm font-medium">Loading Website Content Chat...</p>
         </div>
       </div>
@@ -75,7 +75,7 @@ function App() {
   }
 
   return (
-    <div className="flex flex-col antialiased bg-white overflow-hidden" style={{ width: '400px', height: '600px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif' }}>
+    <div className="w-extension h-extension flex flex-col font-system antialiased bg-white overflow-hidden">
       {currentView === 'configuration' ? (
         <ConfigurationPanel
           onConfigurationComplete={handleConfigurationComplete}

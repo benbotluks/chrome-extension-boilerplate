@@ -65,9 +65,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
   const canSend = message.trim().length > 0 && !isDisabled;
 
   return (
-    <div className="message-input">
-      <form onSubmit={handleSubmit} className="input-form">
-        <div className="input-container">
+    <div className="border-t border-bootstrap-gray-300 bg-white p-4 max-sm:p-3">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        <div className="flex items-end gap-2 bg-bootstrap-gray-100 border border-bootstrap-gray-300 rounded-2xl px-3 py-2 transition-all duration-200 focus-within:border-bootstrap-primary focus-within:shadow-lg focus-within:shadow-blue-100">
           <textarea
             ref={textareaRef}
             value={message}
@@ -75,7 +75,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={isDisabled}
-            className="message-textarea"
+            className="flex-1 border-none bg-transparent resize-none outline-none text-sm leading-snug font-inherit min-h-5 max-h-30 py-1.5 placeholder:text-bootstrap-gray-600 disabled:opacity-60 disabled:cursor-not-allowed"
             rows={1}
             maxLength={maxLength}
           />
@@ -83,11 +83,15 @@ const MessageInput: React.FC<MessageInputProps> = ({
           <button
             type="submit"
             disabled={!canSend}
-            className={`send-button ${canSend ? 'send-button-active' : ''}`}
+            className={`flex items-center justify-center w-9 h-9 border-none rounded-full cursor-pointer transition-all duration-200 flex-shrink-0 ${
+              canSend 
+                ? 'bg-bootstrap-primary text-white hover:bg-bootstrap-primary-dark hover:scale-105' 
+                : 'bg-bootstrap-gray-400 text-bootstrap-gray-600 hover:bg-bootstrap-gray-500'
+            } disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
             title="Send message (Enter)"
           >
             {isLoading ? (
-              <div className="loading-spinner" />
+              <div className="w-4 h-4 border-2 border-transparent border-t-current rounded-full animate-spin" />
             ) : (
               <svg
                 width="20"
@@ -106,150 +110,17 @@ const MessageInput: React.FC<MessageInputProps> = ({
           </button>
         </div>
         
-        <div className="input-footer">
-          <span className="character-count">
+        <div className="flex justify-between items-center text-xs text-bootstrap-gray-600 px-1 max-sm:justify-end">
+          <span className="font-medium">
             {message.length}/{maxLength}
           </span>
-          <span className="input-hint">
+          <span className="opacity-70 max-sm:hidden">
             Press Enter to send, Shift+Enter for new line
           </span>
         </div>
       </form>
 
-      <style>{`
-        .message-input {
-          border-top: 1px solid #e1e5e9;
-          background: white;
-          padding: 16px;
-        }
 
-        .input-form {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .input-container {
-          display: flex;
-          align-items: flex-end;
-          gap: 8px;
-          background: #f8f9fa;
-          border: 1px solid #e1e5e9;
-          border-radius: 20px;
-          padding: 8px 12px;
-          transition: border-color 0.2s ease;
-        }
-
-        .input-container:focus-within {
-          border-color: #007bff;
-          box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
-        }
-
-        .message-textarea {
-          flex: 1;
-          border: none;
-          background: transparent;
-          resize: none;
-          outline: none;
-          font-size: 14px;
-          line-height: 1.4;
-          font-family: inherit;
-          min-height: 20px;
-          max-height: 120px;
-          padding: 6px 0;
-        }
-
-        .message-textarea::placeholder {
-          color: #6c757d;
-        }
-
-        .message-textarea:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .send-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 36px;
-          height: 36px;
-          border: none;
-          border-radius: 50%;
-          background: #e9ecef;
-          color: #6c757d;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          flex-shrink: 0;
-        }
-
-        .send-button:hover:not(:disabled) {
-          background: #dee2e6;
-          transform: scale(1.05);
-        }
-
-        .send-button-active {
-          background: #007bff !important;
-          color: white !important;
-        }
-
-        .send-button-active:hover {
-          background: #0056b3 !important;
-        }
-
-        .send-button:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-          transform: none;
-        }
-
-        .loading-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid transparent;
-          border-top: 2px solid currentColor;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        .input-footer {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          font-size: 11px;
-          color: #6c757d;
-          padding: 0 4px;
-        }
-
-        .character-count {
-          font-weight: 500;
-        }
-
-        .input-hint {
-          opacity: 0.7;
-        }
-
-        /* Mobile responsiveness */
-        @media (max-width: 480px) {
-          .message-input {
-            padding: 12px;
-          }
-
-          .input-hint {
-            display: none;
-          }
-
-          .input-footer {
-            justify-content: flex-end;
-          }
-        }
-      `}</style>
     </div>
   );
 };

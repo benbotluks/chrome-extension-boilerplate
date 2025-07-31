@@ -86,16 +86,16 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   const isFormValid = webhookId.trim().length > 0 && validateWebhookId(webhookId.trim());
 
   return (
-    <div className="configuration-panel">
-      <div className="config-header">
-        <div className="config-icon">⚙️</div>
-        <h2>Configure Botpress</h2>
-        <p>Enter your Botpress webhook ID to start chatting with your bot.</p>
+    <div className="h-full flex flex-col p-6 bg-white overflow-y-auto">
+      <div className="text-center mb-8">
+        <div className="text-5xl mb-4">⚙️</div>
+        <h2 className="m-0 mb-2 text-2xl font-semibold text-bootstrap-gray-900">Configure Botpress</h2>
+        <p className="m-0 text-sm text-bootstrap-gray-600 leading-snug">Enter your Botpress webhook ID to start chatting with your bot.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="config-form">
-        <div className="form-group">
-          <label htmlFor="webhookId" className="form-label">
+      <form onSubmit={handleSubmit} className="mb-8">
+        <div className="mb-6">
+          <label htmlFor="webhookId" className="block mb-2 text-sm font-semibold text-bootstrap-gray-700">
             Webhook ID
           </label>
           <input
@@ -104,28 +104,32 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
             value={webhookId}
             onChange={handleWebhookIdChange}
             placeholder="Enter your Botpress webhook ID"
-            className={`form-input ${error ? 'form-input-error' : ''}`}
+            className={`w-full px-4 py-3 border-2 rounded-lg text-sm transition-all duration-200 box-border focus:outline-none ${
+              error 
+                ? 'border-red-500 focus:border-red-500 focus:shadow-red-100 focus:shadow-lg' 
+                : 'border-bootstrap-gray-300 focus:border-bootstrap-primary focus:shadow-blue-100 focus:shadow-lg'
+            } disabled:bg-bootstrap-gray-100 disabled:opacity-70 disabled:cursor-not-allowed`}
             disabled={isLoading}
             autoFocus
           />
-          <div className="form-help">
+          <div className="mt-1.5 text-xs text-bootstrap-gray-600 leading-tight">
             You can find your webhook ID in your Botpress bot's integration settings.
           </div>
         </div>
 
         {error && (
-          <div className="error-message">
-            <span className="error-icon">⚠️</span>
+          <div className="flex items-center gap-2 px-4 py-3 bg-danger-bg text-danger-text border border-danger-border rounded-md text-sm mb-6">
+            <span className="text-base flex-shrink-0">⚠️</span>
             {error}
           </div>
         )}
 
-        <div className="form-actions">
+        <div className="flex gap-3 justify-end max-sm:flex-col">
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
-              className="cancel-button"
+              className="px-6 py-3 border-none rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 flex items-center gap-2 bg-bootstrap-gray-600 text-white hover:bg-bootstrap-gray-700 disabled:opacity-60 disabled:cursor-not-allowed max-sm:w-full max-sm:justify-center"
               disabled={isLoading}
             >
               Cancel
@@ -134,17 +138,17 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
 
           <button
             type="submit"
-            className="submit-button"
+            className="px-6 py-3 border-none rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 flex items-center gap-2 bg-bootstrap-primary text-white hover:bg-bootstrap-primary-dark disabled:opacity-60 disabled:cursor-not-allowed max-sm:w-full max-sm:justify-center"
             disabled={!isFormValid || isLoading}
           >
             {isTestingConnection ? (
               <>
-                <div className="loading-spinner" />
+                <div className="w-4 h-4 border-2 border-transparent border-t-current rounded-full animate-spin" />
                 Testing Connection...
               </>
             ) : isLoading ? (
               <>
-                <div className="loading-spinner" />
+                <div className="w-4 h-4 border-2 border-transparent border-t-current rounded-full animate-spin" />
                 Saving...
               </>
             ) : (
@@ -154,237 +158,15 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         </div>
       </form>
 
-      <div className="config-help">
-        <h3>How to get your Webhook ID:</h3>
-        <ol>
-          <li>Go to your Botpress Cloud dashboard</li>
-          <li>Select your bot</li>
-          <li>Navigate to "Integrations" → "Webhook"</li>
-          <li>Copy the webhook ID from the URL or settings</li>
+      <div className="bg-bootstrap-gray-100 border border-bootstrap-gray-300 rounded-lg p-5 mt-auto">
+        <h3 className="m-0 mb-3 text-base font-semibold text-bootstrap-gray-700">How to get your Webhook ID:</h3>
+        <ol className="m-0 pl-5 text-bootstrap-gray-600">
+          <li className="mb-1 text-sm leading-snug">Go to your Botpress Cloud dashboard</li>
+          <li className="mb-1 text-sm leading-snug">Select your bot</li>
+          <li className="mb-1 text-sm leading-snug">Navigate to "Integrations" → "Webhook"</li>
+          <li className="mb-1 text-sm leading-snug">Copy the webhook ID from the URL or settings</li>
         </ol>
       </div>
-
-      <style>{`
-        .configuration-panel {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          padding: 24px;
-          background: white;
-          overflow-y: auto;
-        }
-
-        .config-header {
-          text-align: center;
-          margin-bottom: 32px;
-        }
-
-        .config-icon {
-          font-size: 48px;
-          margin-bottom: 16px;
-        }
-
-        .config-header h2 {
-          margin: 0 0 8px 0;
-          font-size: 24px;
-          font-weight: 600;
-          color: #212529;
-        }
-
-        .config-header p {
-          margin: 0;
-          font-size: 14px;
-          color: #6c757d;
-          line-height: 1.4;
-        }
-
-        .config-form {
-          margin-bottom: 32px;
-        }
-
-        .form-group {
-          margin-bottom: 24px;
-        }
-
-        .form-label {
-          display: block;
-          margin-bottom: 8px;
-          font-size: 14px;
-          font-weight: 600;
-          color: #495057;
-        }
-
-        .form-input {
-          width: 100%;
-          padding: 12px 16px;
-          border: 2px solid #dee2e6;
-          border-radius: 8px;
-          font-size: 14px;
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
-          box-sizing: border-box;
-        }
-
-        .form-input:focus {
-          outline: none;
-          border-color: #007bff;
-          box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-        }
-
-        .form-input-error {
-          border-color: #dc3545;
-        }
-
-        .form-input-error:focus {
-          border-color: #dc3545;
-          box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
-        }
-
-        .form-input:disabled {
-          background: #f8f9fa;
-          opacity: 0.7;
-          cursor: not-allowed;
-        }
-
-        .form-help {
-          margin-top: 6px;
-          font-size: 12px;
-          color: #6c757d;
-          line-height: 1.3;
-        }
-
-        .error-message {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 16px;
-          background: #f8d7da;
-          color: #721c24;
-          border: 1px solid #f5c6cb;
-          border-radius: 6px;
-          font-size: 14px;
-          margin-bottom: 24px;
-        }
-
-        .error-icon {
-          font-size: 16px;
-          flex-shrink: 0;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-        }
-
-        .cancel-button,
-        .submit-button {
-          padding: 12px 24px;
-          border: none;
-          border-radius: 8px;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .cancel-button {
-          background: #6c757d;
-          color: white;
-        }
-
-        .cancel-button:hover:not(:disabled) {
-          background: #5a6268;
-        }
-
-        .submit-button {
-          background: #007bff;
-          color: white;
-        }
-
-        .submit-button:hover:not(:disabled) {
-          background: #0056b3;
-        }
-
-        .submit-button:disabled,
-        .cancel-button:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .loading-spinner {
-          width: 16px;
-          height: 16px;
-          border: 2px solid transparent;
-          border-top: 2px solid currentColor;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        .config-help {
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
-          border-radius: 8px;
-          padding: 20px;
-          margin-top: auto;
-        }
-
-        .config-help h3 {
-          margin: 0 0 12px 0;
-          font-size: 16px;
-          font-weight: 600;
-          color: #495057;
-        }
-
-        .config-help ol {
-          margin: 0;
-          padding-left: 20px;
-          color: #6c757d;
-        }
-
-        .config-help li {
-          margin-bottom: 4px;
-          font-size: 14px;
-          line-height: 1.4;
-        }
-
-        /* Mobile responsiveness */
-        @media (max-width: 480px) {
-          .configuration-panel {
-            padding: 16px;
-          }
-
-          .config-header {
-            margin-bottom: 24px;
-          }
-
-          .config-header h2 {
-            font-size: 20px;
-          }
-
-          .form-actions {
-            flex-direction: column;
-          }
-
-          .cancel-button,
-          .submit-button {
-            width: 100%;
-            justify-content: center;
-          }
-
-          .config-help {
-            padding: 16px;
-          }
-        }
-      `}</style>
     </div>
   );
 };
