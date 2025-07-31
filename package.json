@@ -15,12 +15,14 @@
     "@botpress/client": "^1.21.0",
     "dotenv": "^17.2.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "styled-jsx": "^5.1.7"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.1",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/styled-jsx": "^3.4.4",
     "@typescript-eslint/eslint-plugin": "^7.13.1",
     "@typescript-eslint/parser": "^7.13.1",
     "@vitejs/plugin-react": "^4.3.1",

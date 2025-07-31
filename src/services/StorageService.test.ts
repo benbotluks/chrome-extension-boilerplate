@@ -58,8 +58,7 @@ describe("StorageService", () => {
 
   describe("Botpress Configuration", () => {
     const mockConfig: BotpressConfig = {
-      token: "test-token",
-      botId: "test-bot-id",
+      webhookId: "test-webhook-id",
       isConfigured: true,
     };
 
@@ -379,8 +378,7 @@ describe("StorageService", () => {
       );
 
       const config: BotpressConfig = {
-        token: "test-token",
-        botId: "test-bot-id",
+        webhookId: "test-webhook-id",
         isConfigured: true,
       };
 

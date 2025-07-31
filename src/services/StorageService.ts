@@ -3,7 +3,6 @@ import {
   ConversationSession,
   StorageQuota,
   StorageConfig,
-  EncryptedData,
 } from "../types";
 
 /**
@@ -18,6 +17,54 @@ export class StorageService {
     STORAGE_CONFIG: "storage_config",
     CURRENT_SESSION: "current_session",
   } as const;
+
+  // Check if Chrome extension APIs are available
+  private get isExtensionContext(): boolean {
+    return Boolean(
+      typeof chrome !== "undefined" && chrome.storage && chrome.storage.sync
+    );
+  }
+
+  // Fallback storage for non-extension environments
+  private async getFromStorage(key: string): Promise<any> {
+    if (this.isExtensionContext) {
+      const result = await chrome.storage.sync.get([key]);
+      return result[key];
+    } else {
+      // Fallback to localStorage for development/testing
+      const stored = localStorage.getItem(key);
+      return stored ? JSON.parse(stored) : null;
+    }
+  }
+
+  private async setToStorage(key: string, value: any): Promise<void> {
+    if (this.isExtensionContext) {
+      await chrome.storage.sync.set({ [key]: value });
+    } else {
+      // Fallback to localStorage for development/testing
+      localStorage.setItem(key, JSON.stringify(value));
+    }
+  }
+
+  private async getFromLocalStorage(key: string): Promise<any> {
+    if (this.isExtensionContext) {
+      const result = await chrome.storage.local.get([key]);
+      return result[key];
+    } else {
+      // Fallback to localStorage for development/testing
+      const stored = localStorage.getItem(`local_${key}`);
+      return stored ? JSON.parse(stored) : null;
+    }
+  }
+
+  private async setToLocalStorage(key: string, value: any): Promise<void> {
+    if (this.isExtensionContext) {
+      await chrome.storage.local.set({ [key]: value });
+    } else {
+      // Fallback to localStorage for development/testing
+      localStorage.setItem(`local_${key}`, JSON.stringify(value));
+    }
+  }
 
   private readonly DEFAULT_CONFIG: StorageConfig = {
     maxConversations: 100,
@@ -37,120 +84,116 @@ export class StorageService {
   /**
    * Encrypt sensitive data using Web Crypto API
    */
-  private async encryptData(data: string): Promise<EncryptedData> {
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(data);
+  // private async _encryptData(data: string): Promise<EncryptedData> {
+  //   const encoder = new TextEncoder();
+  //   const dataBuffer = encoder.encode(data);
 
-    // Generate a random salt and IV
-    const salt = crypto.getRandomValues(new Uint8Array(16));
-    const iv = crypto.getRandomValues(new Uint8Array(12));
+  //   // Generate a random salt and IV
+  //   const salt = crypto.getRandomValues(new Uint8Array(16));
+  //   const iv = crypto.getRandomValues(new Uint8Array(12));
 
-    // Derive key from a base key (in production, this should be more secure)
-    const baseKey = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode("botpress-extension-key"),
-      { name: "PBKDF2" },
-      false,
-      ["deriveKey"]
-    );
+  //   // Derive key from a base key (in production, this should be more secure)
+  //   const baseKey = await crypto.subtle.importKey(
+  //     "raw",
+  //     encoder.encode("botpress-extension-key"),
+  //     { name: "PBKDF2" },
+  //     false,
+  //     ["deriveKey"]
+  //   );
 
-    const key = await crypto.subtle.deriveKey(
-      {
-        name: "PBKDF2",
-        salt: salt,
-        iterations: 100000,
-        hash: "SHA-256",
-      },
-      baseKey,
-      { name: "AES-GCM", length: 256 },
-      false,
-      ["encrypt"]
-    );
+  //   const key = await crypto.subtle.deriveKey(
+  //     {
+  //       name: "PBKDF2",
+  //       salt: salt,
+  //       iterations: 100000,
+  //       hash: "SHA-256",
+  //     },
+  //     baseKey,
+  //     { name: "AES-GCM", length: 256 },
+  //     false,
+  //     ["encrypt"]
+  //   );
 
-    // Encrypt the data
-    const encryptedBuffer = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      dataBuffer
-    );
+  //   // Encrypt the data
+  //   const encryptedBuffer = await crypto.subtle.encrypt(
+  //     { name: "AES-GCM", iv: iv },
+  //     key,
+  //     dataBuffer
+  //   );
 
-    return {
-      data: Array.from(new Uint8Array(encryptedBuffer))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join(""),
-      iv: Array.from(iv)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join(""),
-      salt: Array.from(salt)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join(""),
-    };
-  }
+  //   return {
+  //     data: Array.from(new Uint8Array(encryptedBuffer))
+  //       .map((b) => b.toString(16).padStart(2, "0"))
+  //       .join(""),
+  //     iv: Array.from(iv)
+  //       .map((b) => b.toString(16).padStart(2, "0"))
+  //       .join(""),
+  //     salt: Array.from(salt)
+  //       .map((b) => b.toString(16).padStart(2, "0"))
+  //       .join(""),
+  //   };
+  // }
 
   /**
    * Decrypt sensitive data using Web Crypto API
    */
-  private async decryptData(encryptedData: EncryptedData): Promise<string> {
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+  // private async decryptData(encryptedData: EncryptedData): Promise<string> {
+  //   const encoder = new TextEncoder();
+  //   const decoder = new TextDecoder();
 
-    // Convert hex strings back to Uint8Arrays
-    const data = new Uint8Array(
-      encryptedData.data.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
-    );
-    const iv = new Uint8Array(
-      encryptedData.iv.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
-    );
-    const salt = new Uint8Array(
-      encryptedData.salt.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
-    );
+  //   // Convert hex strings back to Uint8Arrays
+  //   const data = new Uint8Array(
+  //     encryptedData.data.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
+  //   );
+  //   const iv = new Uint8Array(
+  //     encryptedData.iv.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
+  //   );
+  //   const salt = new Uint8Array(
+  //     encryptedData.salt.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
+  //   );
 
-    // Derive the same key
-    const baseKey = await crypto.subtle.importKey(
-      "raw",
-      encoder.encode("botpress-extension-key"),
-      { name: "PBKDF2" },
-      false,
-      ["deriveKey"]
-    );
+  //   // Derive the same key
+  //   const baseKey = await crypto.subtle.importKey(
+  //     "raw",
+  //     encoder.encode("botpress-extension-key"),
+  //     { name: "PBKDF2" },
+  //     false,
+  //     ["deriveKey"]
+  //   );
 
-    const key = await crypto.subtle.deriveKey(
-      {
-        name: "PBKDF2",
-        salt: salt,
-        iterations: 100000,
-        hash: "SHA-256",
-      },
-      baseKey,
-      { name: "AES-GCM", length: 256 },
-      false,
-      ["decrypt"]
-    );
+  //   const key = await crypto.subtle.deriveKey(
+  //     {
+  //       name: "PBKDF2",
+  //       salt: salt,
+  //       iterations: 100000,
+  //       hash: "SHA-256",
+  //     },
+  //     baseKey,
+  //     { name: "AES-GCM", length: 256 },
+  //     false,
+  //     ["decrypt"]
+  //   );
 
-    // Decrypt the data
-    const decryptedBuffer = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: iv },
-      key,
-      data
-    );
+  //   // Decrypt the data
+  //   const decryptedBuffer = await crypto.subtle.decrypt(
+  //     { name: "AES-GCM", iv: iv },
+  //     key,
+  //     data
+  //   );
 
-    return decoder.decode(decryptedBuffer);
-  }
+  //   return decoder.decode(decryptedBuffer);
+  // }
 
   /**
    * Save Botpress configuration with encryption
    */
   async saveBotpressConfig(config: BotpressConfig): Promise<void> {
     try {
-      const encryptedToken = await this.encryptData(config.token);
       const configToStore = {
         ...config,
-        token: encryptedToken,
       };
 
-      await chrome.storage.sync.set({
-        [this.STORAGE_KEYS.BOTPRESS_CONFIG]: configToStore,
-      });
+      await this.setToStorage(this.STORAGE_KEYS.BOTPRESS_CONFIG, configToStore);
     } catch (error) {
       throw new Error(`Failed to save Botpress config: ${error}`);
     }
@@ -161,20 +204,15 @@ export class StorageService {
    */
   async loadBotpressConfig(): Promise<BotpressConfig | null> {
     try {
-      const result = await chrome.storage.sync.get([
-        this.STORAGE_KEYS.BOTPRESS_CONFIG,
-      ]);
-      const storedConfig = result[this.STORAGE_KEYS.BOTPRESS_CONFIG];
-
+      const storedConfig = await this.getFromStorage(
+        this.STORAGE_KEYS.BOTPRESS_CONFIG
+      );
       if (!storedConfig) {
         return null;
       }
 
-      const decryptedToken = await this.decryptData(storedConfig.token);
-
       return {
         ...storedConfig,
-        token: decryptedToken,
       };
     } catch (error) {
       throw new Error(`Failed to load Botpress config: ${error}`);
@@ -189,9 +227,10 @@ export class StorageService {
       const conversations = await this.loadAllConversations();
       conversations[conversation.id] = conversation;
 
-      await chrome.storage.local.set({
-        [this.STORAGE_KEYS.CONVERSATIONS]: conversations,
-      });
+      await this.setToLocalStorage(
+        this.STORAGE_KEYS.CONVERSATIONS,
+        conversations
+      );
     } catch (error) {
       throw new Error(`Failed to save conversation: ${error}`);
     }
@@ -216,10 +255,10 @@ export class StorageService {
    */
   async loadAllConversations(): Promise<Record<string, ConversationSession>> {
     try {
-      const result = await chrome.storage.local.get([
-        this.STORAGE_KEYS.CONVERSATIONS,
-      ]);
-      return result[this.STORAGE_KEYS.CONVERSATIONS] || {};
+      const conversations = await this.getFromLocalStorage(
+        this.STORAGE_KEYS.CONVERSATIONS
+      );
+      return conversations || {};
     } catch (error) {
       throw new Error(`Failed to load conversations: ${error}`);
     }
@@ -233,9 +272,10 @@ export class StorageService {
       const conversations = await this.loadAllConversations();
       delete conversations[conversationId];
 
-      await chrome.storage.local.set({
-        [this.STORAGE_KEYS.CONVERSATIONS]: conversations,
-      });
+      await this.setToLocalStorage(
+        this.STORAGE_KEYS.CONVERSATIONS,
+        conversations
+      );
     } catch (error) {
       throw new Error(`Failed to delete conversation: ${error}`);
     }
@@ -258,9 +298,10 @@ export class StorageService {
    */
   async setCurrentSession(sessionId: string): Promise<void> {
     try {
-      await chrome.storage.local.set({
-        [this.STORAGE_KEYS.CURRENT_SESSION]: sessionId,
-      });
+      await this.setToLocalStorage(
+        this.STORAGE_KEYS.CURRENT_SESSION,
+        sessionId
+      );
     } catch (error) {
       throw new Error(`Failed to set current session: ${error}`);
     }
@@ -271,10 +312,10 @@ export class StorageService {
    */
   async getCurrentSession(): Promise<string | null> {
     try {
-      const result = await chrome.storage.local.get([
-        this.STORAGE_KEYS.CURRENT_SESSION,
-      ]);
-      return result[this.STORAGE_KEYS.CURRENT_SESSION] || null;
+      const sessionId = await this.getFromLocalStorage(
+        this.STORAGE_KEYS.CURRENT_SESSION
+      );
+      return sessionId || null;
     } catch (error) {
       throw new Error(`Failed to get current session: ${error}`);
     }
@@ -285,21 +326,32 @@ export class StorageService {
    */
   async getStorageQuota(): Promise<StorageQuota> {
     try {
-      const localUsage = await chrome.storage.local.getBytesInUse();
-      const syncUsage = await chrome.storage.sync.getBytesInUse();
+      if (this.isExtensionContext) {
+        const localUsage = await chrome.storage.local.getBytesInUse();
+        const syncUsage = await chrome.storage.sync.getBytesInUse();
 
-      // Chrome storage limits
-      const LOCAL_QUOTA = chrome.storage.local.QUOTA_BYTES || 5242880; // 5MB
-      const SYNC_QUOTA = chrome.storage.sync.QUOTA_BYTES || 102400; // 100KB
+        // Chrome storage limits
+        const LOCAL_QUOTA = chrome.storage.local.QUOTA_BYTES || 5242880; // 5MB
+        const SYNC_QUOTA = chrome.storage.sync.QUOTA_BYTES || 102400; // 100KB
 
-      const totalUsed = localUsage + syncUsage;
-      const totalAvailable = LOCAL_QUOTA + SYNC_QUOTA;
+        const totalUsed = localUsage + syncUsage;
+        const totalAvailable = LOCAL_QUOTA + SYNC_QUOTA;
 
-      return {
-        used: totalUsed,
-        available: totalAvailable - totalUsed,
-        percentage: (totalUsed / totalAvailable) * 100,
-      };
+        return {
+          used: totalUsed,
+          available: totalAvailable - totalUsed,
+          percentage: (totalUsed / totalAvailable) * 100,
+        };
+      } else {
+        // Fallback for non-extension environment
+        const used = 0; // Can't calculate localStorage usage easily
+        const available = 5242880; // Assume 5MB available
+        return {
+          used,
+          available,
+          percentage: 0,
+        };
+      }
     } catch (error) {
       throw new Error(`Failed to get storage quota: ${error}`);
     }
@@ -351,10 +403,10 @@ export class StorageService {
    */
   async getStorageConfig(): Promise<StorageConfig> {
     try {
-      const result = await chrome.storage.sync.get([
-        this.STORAGE_KEYS.STORAGE_CONFIG,
-      ]);
-      return result[this.STORAGE_KEYS.STORAGE_CONFIG] || this.DEFAULT_CONFIG;
+      const config = await this.getFromStorage(
+        this.STORAGE_KEYS.STORAGE_CONFIG
+      );
+      return config || this.DEFAULT_CONFIG;
     } catch (error) {
       throw new Error(`Failed to get storage config: ${error}`);
     }
@@ -368,9 +420,7 @@ export class StorageService {
       const currentConfig = await this.getStorageConfig();
       const updatedConfig = { ...currentConfig, ...config };
 
-      await chrome.storage.sync.set({
-        [this.STORAGE_KEYS.STORAGE_CONFIG]: updatedConfig,
-      });
+      await this.setToStorage(this.STORAGE_KEYS.STORAGE_CONFIG, updatedConfig);
     } catch (error) {
       throw new Error(`Failed to update storage config: ${error}`);
     }
@@ -381,8 +431,13 @@ export class StorageService {
    */
   async clearAllData(): Promise<void> {
     try {
-      await chrome.storage.local.clear();
-      await chrome.storage.sync.clear();
+      if (this.isExtensionContext) {
+        await chrome.storage.local.clear();
+        await chrome.storage.sync.clear();
+      } else {
+        // Clear localStorage fallback
+        localStorage.clear();
+      }
     } catch (error) {
       throw new Error(`Failed to clear all data: ${error}`);
     }
@@ -406,9 +461,10 @@ export class StorageService {
   async importConversations(data: string): Promise<void> {
     try {
       const conversations = JSON.parse(data);
-      await chrome.storage.local.set({
-        [this.STORAGE_KEYS.CONVERSATIONS]: conversations,
-      });
+      await this.setToLocalStorage(
+        this.STORAGE_KEYS.CONVERSATIONS,
+        conversations
+      );
     } catch (error) {
       throw new Error(`Failed to import conversations: ${error}`);
     }

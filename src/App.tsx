@@ -1,55 +1,95 @@
-import { useState } from 'react'
-import * as chat from '@botpress/chat'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState, useEffect } from 'react';
+import ChatInterface from './components/ChatInterface';
+import ConfigurationPanel from './components/ConfigurationPanel';
+import { useBotpressChat } from './hooks/useBotpressChat';
+import type { PageContent, BotpressConfig } from './types';
+import './App.css';
+
+// Mock page content for demo purposes
+// In a real Chrome extension, this would come from content extraction
+const mockPageContent: PageContent = {
+  url: window.location.href,
+  title: document.title || 'Demo Page',
+  domain: window.location.hostname,
+  contentType: 'generic',
+  extractedText: 'This is a demo of the Website Content Chat extension. In a real Chrome extension, this would contain the actual page content extracted from the current tab.',
+  metadata: {
+    description: 'Demo page for testing the chat interface',
+    keywords: ['demo', 'chat', 'botpress'],
+  },
+  extractedAt: new Date(),
+};
+
+type AppView = 'loading' | 'configuration' | 'chat';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [currentView, setCurrentView] = useState<AppView>('loading');
+  const [pageContent] = useState<PageContent>(mockPageContent);
+  
+  const { isConfigured, configure } = useBotpressChat(pageContent);
+
+  // Initialize the app
+  useEffect(() => {
+    const initializeApp = async () => {
+      // Simulate loading time
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      if (isConfigured) {
+        setCurrentView('chat');
+      } else {
+        setCurrentView('configuration');
+      }
+    };
+
+    initializeApp();
+  }, [isConfigured]);
+
+  const handleConfigurationComplete = async (config: BotpressConfig) => {
+    const success = await configure(config);
+    if (success) {
+      setCurrentView('chat');
+    } else {
+      // Error handling is done in the configure function
+      throw new Error('Configuration failed');
+    }
+  };
+
+  const handleConfigurationNeeded = () => {
+    setCurrentView('configuration');
+  };
+
+  const handleBackToChat = () => {
+    if (isConfigured) {
+      setCurrentView('chat');
+    }
+  };
+
+  if (currentView === 'loading') {
+    return (
+      <div className="app">
+        <div className="loading-screen">
+          <div className="loading-spinner" />
+          <p>Loading Website Content Chat...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={
-          async () => {
-            setCount((count) => count + 1)
-            await getMessages()
-          }
-        }>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="app">
+      {currentView === 'configuration' ? (
+        <ConfigurationPanel
+          onConfigurationComplete={handleConfigurationComplete}
+          onCancel={isConfigured ? handleBackToChat : undefined}
+        />
+      ) : (
+        <ChatInterface
+          pageContent={pageContent}
+          onConfigurationNeeded={handleConfigurationNeeded}
+        />
+      )}
+    </div>
+  );
 }
 
-const getMessages = async () => {
-  const webhookId = import.meta.env.VITE_WEBHOOK_ID
-
-  const client = await chat.Client.connect({
-    webhookId
-  })
-
-  const { conversation } = await client.createConversation({})
-  const { messages } = await client.listMessages({ conversationId: conversation.id })
-  // const conversation = await client.getConversation({ id: messages[0].conversationId })
-  console.log(conversation)
-  console.log(messages)
-}
-
-export default App
+export default App;
