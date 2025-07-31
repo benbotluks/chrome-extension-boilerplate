@@ -9,7 +9,7 @@
   - Create new base CSS file with Tailwind imports
   - _Requirements: 1.1, 2.1, 2.2_
 
-- [ ] 2. Replace global styles with Tailwind base
+- [x] 2. Replace global styles with Tailwind base
 
   - Replace src/index.css content with Tailwind base imports
   - Remove Vite default styles and replace with Tailwind equivalents
@@ -17,7 +17,7 @@
   - Test that build process works with new CSS setup
   - _Requirements: 1.2, 2.3, 4.4_
 
-- [ ] 3. Migrate App component CSS to Tailwind utilities
+- [x] 3. Migrate App component CSS to Tailwind utilities
 
   - Convert .app class to Tailwind utility classes in App.tsx
   - Convert loading screen styles to Tailwind utilities

@@ -3,7 +3,6 @@ import ChatInterface from './components/ChatInterface';
 import ConfigurationPanel from './components/ConfigurationPanel';
 import { useBotpressChat } from './hooks/useBotpressChat';
 import type { PageContent, BotpressConfig } from './types';
-import './App.css';
 
 // Mock page content for demo purposes
 // In a real Chrome extension, this would come from content extraction
@@ -66,17 +65,17 @@ function App() {
 
   if (currentView === 'loading') {
     return (
-      <div className="app">
-        <div className="loading-screen">
-          <div className="loading-spinner" />
-          <p>Loading Website Content Chat...</p>
+      <div className="flex flex-col antialiased bg-white overflow-hidden" style={{ width: '400px', height: '600px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif' }}>
+        <div className="h-full flex flex-col items-center justify-center gap-4" style={{ color: '#495057' }}>
+          <div className="w-8 h-8 border-3 rounded-full animate-spin" style={{ borderColor: '#e9ecef', borderTopColor: '#007bff' }} />
+          <p className="m-0 text-sm font-medium">Loading Website Content Chat...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="app">
+    <div className="flex flex-col antialiased bg-white overflow-hidden" style={{ width: '400px', height: '600px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif' }}>
       {currentView === 'configuration' ? (
         <ConfigurationPanel
           onConfigurationComplete={handleConfigurationComplete}
