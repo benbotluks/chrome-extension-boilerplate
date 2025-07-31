@@ -25,31 +25,65 @@ function App() {
   const [currentView, setCurrentView] = useState<AppView>('loading');
   const [pageContent] = useState<PageContent>(mockPageContent);
 
-  const { isConfigured, configure } = useBotpressChat(pageContent);
+  const {
+    isConfigured,
+    configure,
+    messages,
+    isLoading,
+    error,
+    conversationId,
+    sendMessage,
+    startNewConversation,
+    clearError
+  } = useBotpressChat(pageContent);
+
+  console.log('App render - isConfigured:', isConfigured, 'currentView:', currentView);
 
   // Initialize the app
   useEffect(() => {
-    const initializeApp = async () => {
-      // Simulate loading time
-      await new Promise(resolve => setTimeout(resolve, 500));
+    console.log('App useEffect triggered, isConfigured:', isConfigured, 'currentView:', currentView);
 
-      if (isConfigured) {
-        setCurrentView('chat');
-      } else {
-        setCurrentView('configuration');
-      }
-    };
+    // Handle initial loading
+    if (currentView === 'loading') {
+      const initializeApp = async () => {
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-    initializeApp();
+        if (isConfigured) {
+          console.log('Initial load: Setting view to chat');
+          setCurrentView('chat');
+        } else {
+          console.log('Initial load: Setting view to configuration');
+          setCurrentView('configuration');
+        }
+      };
+
+      initializeApp();
+      return;
+    }
+
+    // Handle configuration state changes (no delay needed)
+    if (isConfigured && currentView !== 'chat') {
+      console.log('Configuration changed: Setting view to chat');
+      setCurrentView('chat');
+    } else if (!isConfigured && currentView !== 'configuration') {
+      console.log('Configuration changed: Setting view to configuration');
+      setCurrentView('configuration');
+    }
   }, [isConfigured]);
 
-  const handleConfigurationComplete = async (config: BotpressConfig) => {
+
+  const handleConfigurationComplete = async (config: BotpressConfig): Promise<boolean> => {
+    console.log('handleConfigurationComplete called with:', config);
     const success = await configure(config);
+    console.log('Configure result:', success);
     if (success) {
-      setCurrentView('chat');
+      setCurrentView('chat')
+      console.log('Configuration successful, useEffect will handle view change');
+      return true;
     } else {
+      console.log('Configuration failed');
       // Error handling is done in the configure function
-      throw new Error('Configuration failed');
+      return false;
     }
   };
 
@@ -74,17 +108,27 @@ function App() {
     );
   }
 
+
+
   return (
     <div className="w-extension h-extension flex flex-col font-system antialiased bg-white overflow-hidden">
-      {currentView === 'configuration' ? (
-        <ConfigurationPanel
-          onConfigurationComplete={handleConfigurationComplete}
-          onCancel={isConfigured ? handleBackToChat : undefined}
-        />
-      ) : (
+      {currentView === 'chat' ? (
         <ChatInterface
           pageContent={pageContent}
           onConfigurationNeeded={handleConfigurationNeeded}
+          messages={messages}
+          isLoading={isLoading}
+          error={error}
+          conversationId={conversationId}
+          isConfigured={isConfigured}
+          sendMessage={sendMessage}
+          startNewConversation={startNewConversation}
+          clearError={clearError}
+        />
+      ) : (
+        <ConfigurationPanel
+          onConfigurationComplete={handleConfigurationComplete}
+          onCancel={isConfigured ? handleBackToChat : undefined}
         />
       )}
     </div>

@@ -48,12 +48,20 @@ export const useBotpressChat = (
   // Initialize configuration on mount
   useEffect(() => {
     const initializeConfiguration = async () => {
+      console.log("Hook: Initializing configuration...");
       try {
         storageService = StorageService.getInstance();
         const config = await storageService.loadBotpressConfig();
+        console.log("Hook: Loaded config from storage:", config);
         if (config && config.isConfigured) {
+          console.log(
+            "Hook: Configuring botpress service with existing config..."
+          );
           await botpressService.configure(config);
+          console.log("Hook: Setting isConfigured to true");
           setState((prev) => ({ ...prev, isConfigured: true }));
+        } else {
+          console.log("Hook: No valid config found, staying unconfigured");
         }
       } catch (error) {
         console.error("Failed to initialize Botpress configuration:", error);
@@ -96,14 +104,20 @@ export const useBotpressChat = (
 
   const configure = useCallback(
     async (config: BotpressConfig): Promise<boolean> => {
+      console.log("useBotpressChat configure called with:", config);
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
         // Test the configuration
+        console.log("Configuring botpressService...");
         await botpressService.configure(config);
+
+        console.log("Testing connection...");
         const testResult = await botpressService.testConnection();
+        console.log("Test result:", testResult);
 
         if (!testResult.success) {
+          console.log("Configuration test failed:", testResult.error);
           setState((prev) => ({
             ...prev,
             isLoading: false,
@@ -113,6 +127,7 @@ export const useBotpressChat = (
         }
 
         // Save configuration if test passes
+        console.log("Saving configuration...");
         await storageService.saveBotpressConfig(config);
         setState((prev) => ({
           ...prev,
@@ -120,8 +135,10 @@ export const useBotpressChat = (
           isConfigured: true,
         }));
 
+        console.log("Configuration successful, isConfigured set to true");
         return true;
       } catch (error) {
+        console.error("Configuration error:", error);
         setState((prev) => ({
           ...prev,
           isLoading: false,

@@ -6,7 +6,7 @@ import type { BotpressConfig } from '../types';
 let storageService: StorageService;
 
 interface ConfigurationPanelProps {
-  onConfigurationComplete: (config: BotpressConfig) => void;
+  onConfigurationComplete: (config: BotpressConfig) => Promise<boolean>;
   onCancel?: () => void;
   initialConfig?: BotpressConfig;
 }
@@ -69,7 +69,10 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       };
 
       // Test the configuration by attempting to configure the service
-      await onConfigurationComplete(config);
+      const success = await onConfigurationComplete(config);
+      if (!success) {
+        setError('Configuration test failed. Please check your webhook ID.');
+      }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Configuration failed');
     } finally {

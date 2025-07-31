@@ -1,31 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { useBotpressChat } from '../hooks/useBotpressChat';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import SuggestedQuestions from './SuggestedQuestions';
-import type { PageContent } from '../types';
+import type { PageContent, ChatMessage } from '../types';
 
 interface ChatInterfaceProps {
   pageContent?: PageContent;
   onConfigurationNeeded?: () => void;
+  messages: ChatMessage[];
+  isLoading: boolean;
+  error: string | null;
+  conversationId: string | null;
+  isConfigured: boolean;
+  sendMessage: (content: string, pageContext?: PageContent) => Promise<void>;
+  startNewConversation: (pageContext?: PageContent) => Promise<void>;
+  clearError: () => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
   pageContent,
   onConfigurationNeeded,
+  messages,
+  isLoading,
+  error,
+  conversationId,
+  isConfigured,
+  sendMessage,
+  startNewConversation,
+  clearError,
 }) => {
   const [showContentPreview, setShowContentPreview] = useState(false);
-  
-  const {
-    messages,
-    isLoading,
-    error,
-    conversationId,
-    isConfigured,
-    sendMessage,
-    startNewConversation,
-    clearError,
-  } = useBotpressChat(pageContent);
 
   // Redirect to configuration if not configured
   useEffect(() => {

@@ -26,11 +26,22 @@ export class BotpressService {
    * Configure the service with Botpress credentials
    */
   async configure(config: BotpressConfig): Promise<void> {
+    console.log("Configuring BotpressService with:", {
+      webhookId: config.webhookId,
+      isConfigured: config.isConfigured,
+    });
     this.config = config;
     if (config.webhookId && config.isConfigured) {
-      this.client = await chat.Client.connect({
-        webhookId: config.webhookId,
-      });
+      try {
+        console.log("Attempting to connect to Botpress...");
+        this.client = await chat.Client.connect({
+          webhookId: config.webhookId,
+        });
+        console.log("Successfully connected to Botpress:", !!this.client);
+      } catch (error) {
+        console.error("Failed to connect to Botpress:", error);
+        throw error;
+      }
     }
   }
 
@@ -41,7 +52,13 @@ export class BotpressService {
     success: boolean;
     error?: BotpressServiceError;
   }> {
+    console.log("Testing connection...", {
+      client: !!this.client,
+      config: !!this.config,
+    });
+
     if (!this.client || !this.config) {
+      console.log("Service not configured");
       return {
         success: false,
         error: {
@@ -52,10 +69,13 @@ export class BotpressService {
     }
 
     try {
+      console.log("Attempting to list conversations...");
       // Test connection by attempting to get bot info
-      await this.client.listConversations({});
+      const result = await this.client.listConversations({});
+      console.log("Connection test successful:", result);
       return { success: true };
     } catch (error: any) {
+      console.error("Connection test failed:", error);
       return {
         success: false,
         error: this.handleError(error),
