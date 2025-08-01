@@ -1,5 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import type { ChatMessage } from '../types';
+import { TypingWidget } from './widgets';
+import { Message } from './messages';
+
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -14,36 +17,6 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = false }
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const formatTimestamp = (timestamp: Date) => {
-    try {
-      // Ensure timestamp is a valid Date object
-      const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
-      
-      // Check if the date is valid
-      if (isNaN(date.getTime())) {
-        return 'Invalid date';
-      }
-      
-      return new Intl.DateTimeFormat('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      }).format(date);
-    } catch (error) {
-      console.error('Error formatting timestamp:', error, timestamp);
-      return 'Invalid date';
-    }
-  };
-
-  const formatUrl = (url: string) => {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.hostname + urlObj.pathname;
-    } catch {
-      return url;
-    }
-  };
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3" style={{ scrollbarWidth: 'thin', scrollbarColor: '#ddd transparent' }}>
@@ -56,50 +29,14 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = false }
         )}
 
         {messages.map((message) => (
-          <div
+          <Message
+            message={message}
+            url={message.pageContext?.url || ''}
             key={message.id}
-            className={`flex mb-2 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className="max-w-[80%] min-w-[120px]">
-              <div className={`px-4 py-3 rounded-2xl text-sm leading-snug break-words ${message.type === 'user'
-                ? 'bg-bootstrap-primary text-white rounded-br-sm'
-                : 'bg-bootstrap-gray-200 text-gray-800 rounded-bl-sm'
-                }`}>
-                {message.content}
-              </div>
-
-              <div className={`flex items-center gap-2 mt-1 text-xs text-gray-600 px-1 ${message.type === 'user' ? 'justify-end' : 'justify-start'
-                }`}>
-                <span>
-                  {formatTimestamp(message.timestamp)}
-                </span>
-
-                {message.pageContext && (
-                  <span className="flex items-center gap-1 max-w-[150px]">
-                    <span className="text-[10px] opacity-70">🔗</span>
-                    <span className="whitespace-nowrap overflow-hidden text-ellipsis opacity-80" title={message.pageContext.url}>
-                      {formatUrl(message.pageContext.url)}
-                    </span>
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+          />
         ))}
 
-        {isLoading && (
-          <div className="flex justify-start mb-2">
-            <div className="max-w-[80%] min-w-[120px]">
-              <div className="px-4 py-3 rounded-2xl text-sm leading-snug break-words bg-bootstrap-gray-200 text-gray-800 rounded-bl-sm">
-                <div className="flex items-center gap-1 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce" style={{ animationDelay: '-0.32s' }}></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce" style={{ animationDelay: '-0.16s' }}></span>
-                  <span className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-bounce"></span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {isLoading && <TypingWidget />}
 
         <div ref={messagesEndRef} />
       </div>
