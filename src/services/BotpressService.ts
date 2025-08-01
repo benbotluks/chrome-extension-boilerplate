@@ -17,6 +17,7 @@ export class BotpressService {
   private config: BotpressConfig | null = null;
   private userId: string | null = null;
   private storageService: StorageService;
+  private listener: any | null = null; // SignalListener from Botpress Chat API
 
   constructor(config?: BotpressConfig) {
     this.storageService = StorageService.getInstance();
@@ -305,6 +306,88 @@ export class BotpressService {
         id: conversationId,
       });
 
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: this.handleError(error),
+      };
+    }
+  }
+
+  /**
+   * Start listening for SSE events on a conversation
+   */
+  async startListening(
+    conversationId: string,
+    onMessage: (message: ChatMessage) => void
+  ): Promise<{ success: boolean; error?: BotpressServiceError }> {
+    if (!this.client || !this.config) {
+      return {
+        success: false,
+        error: {
+          type: "authentication",
+          message: "Service not configured",
+        },
+      };
+    }
+
+    try {
+      // Stop any existing listener first
+      await this.stopListening();
+
+      // Start listening for events on the conversation
+      this.listener = await this.client.listenConversation({
+        id: conversationId,
+      });
+
+      // Handle message_created events
+      this.listener.on("message_created", (event: any) => {
+        try {
+          // Convert the event to ChatMessage format
+          const message: ChatMessage = {
+            id: event.id,
+            type: event.isBot ? "bot" : "user",
+            content:
+              event.payload.type === "text"
+                ? event.payload.text
+                : "[Non-text message]",
+            timestamp: new Date(event.createdAt),
+          };
+
+          // Call the callback with the converted message
+          onMessage(message);
+        } catch (error) {
+          console.error("Error processing message_created event:", error);
+        }
+      });
+
+      // Handle connection errors
+      this.listener.on("error", (error: any) => {
+        console.error("SSE connection error:", error);
+      });
+
+      return { success: true };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: this.handleError(error),
+      };
+    }
+  }
+
+  /**
+   * Stop listening for SSE events
+   */
+  async stopListening(): Promise<{
+    success: boolean;
+    error?: BotpressServiceError;
+  }> {
+    try {
+      if (this.listener) {
+        await this.listener.disconnect();
+        this.listener = null;
+      }
       return { success: true };
     } catch (error: any) {
       return {
