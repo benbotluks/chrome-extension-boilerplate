@@ -15,6 +15,7 @@ export interface BotpressServiceError {
 export class BotpressService {
   private client: chat.AuthenticatedClient | null = null;
   private config: BotpressConfig | null = null;
+  private userId: string | null = null;
 
   constructor(config?: BotpressConfig) {
     if (config) {
@@ -33,11 +34,12 @@ export class BotpressService {
     this.config = config;
     if (config.webhookId && config.isConfigured) {
       try {
-        console.log("Attempting to connect to Botpress...");
         this.client = await chat.Client.connect({
           webhookId: config.webhookId,
         });
-        console.log("Successfully connected to Botpress:", !!this.client);
+        console.log("Successfully connected to Botpress:", this.client);
+        const { user } = await this.client.getUser({});
+        this.userId = user.id;
       } catch (error) {
         console.error("Failed to connect to Botpress:", error);
         throw error;
@@ -200,7 +202,7 @@ User Question: ${content}`;
 
         return {
           id: msg.id,
-          type: msg.userId === "user" ? "user" : "bot",
+          type: msg.userId === this.userId ? "user" : "bot",
           content:
             msg.payload.type === "text"
               ? msg.payload.text

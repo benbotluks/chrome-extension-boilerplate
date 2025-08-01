@@ -52,13 +52,8 @@ export const useBotpressChat = (
       try {
         storageService = StorageService.getInstance();
         const config = await storageService.loadBotpressConfig();
-        console.log("Hook: Loaded config from storage:", config);
         if (config && config.isConfigured) {
-          console.log(
-            "Hook: Configuring botpress service with existing config..."
-          );
           await botpressService.configure(config);
-          console.log("Hook: Setting isConfigured to true");
           setState((prev) => ({ ...prev, isConfigured: true }));
         } else {
           console.log("Hook: No valid config found, staying unconfigured");
