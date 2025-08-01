@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { botpressService } from "../services/BotpressService";
 import { StorageService } from "../services/StorageService";
 import type {
@@ -47,6 +47,14 @@ export const useBotpressChat = (
     isConfigured: false,
     isListening: false,
   });
+
+  // Use ref to track current listening state to avoid stale closure issues
+  const isListeningRef = useRef(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isListeningRef.current = state.isListening;
+  }, [state.isListening]);
 
   // Initialize configuration on mount
   useEffect(() => {
@@ -109,6 +117,7 @@ export const useBotpressChat = (
 
       try {
         setState((prev) => ({ ...prev, isListening: true }));
+        isListeningRef.current = true;
 
         const result = await botpressService.startListening(
           state.conversationId,
@@ -159,18 +168,21 @@ export const useBotpressChat = (
         if (!result.success) {
           console.error("Failed to start SSE listening:", result.error);
           setState((prev) => ({ ...prev, isListening: false }));
+          isListeningRef.current = false;
         }
       } catch (error) {
         console.error("Error starting SSE listening:", error);
         setState((prev) => ({ ...prev, isListening: false }));
+        isListeningRef.current = false;
       }
     };
 
     const stopSSEListening = async () => {
-      if (state.isListening) {
+      if (isListeningRef.current) {
         try {
           await botpressService.stopListening();
           setState((prev) => ({ ...prev, isListening: false }));
+          isListeningRef.current = false;
         } catch (error) {
           console.error("Error stopping SSE listening:", error);
         }
@@ -313,25 +325,8 @@ export const useBotpressChat = (
       try {
         setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        // Add user message to state immediately
-        const userMessage: ChatMessage = {
-          id: `user-${Date.now()}`,
-          type: "user",
-          content,
-          timestamp: new Date(),
-          pageContext:
-            pageContext || initialPageContext
-              ? {
-                  url: (pageContext || initialPageContext)!.url,
-                  title: (pageContext || initialPageContext)!.title,
-                }
-              : undefined,
-        };
-
-        setState((prev) => ({
-          ...prev,
-          messages: [...prev.messages, userMessage],
-        }));
+        // Don't add user message immediately - let SSE handle all message updates
+        // This prevents duplicate messages when SSE receives the same message from server
 
         // Send message to Botpress
         const sendResult = await botpressService.sendMessage(
@@ -348,50 +343,11 @@ export const useBotpressChat = (
           return;
         }
 
-        // If SSE is active, rely on SSE events to update the UI
-        // Otherwise, fall back to manual message fetching
-        if (state.isListening) {
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-          }));
-        } else {
-          // Fallback: Get updated messages from Botpress manually
-          const messagesResult = await botpressService.getMessages(
-            state.conversationId!
-          );
-          if (messagesResult.error) {
-            setState((prev) => ({
-              ...prev,
-              isLoading: false,
-              error: messagesResult.error!.message,
-            }));
-            return;
-          }
-
-          const updatedMessages = messagesResult.messages || [];
-          setState((prev) => ({
-            ...prev,
-            messages: updatedMessages,
-            isLoading: false,
-          }));
-
-          // Update conversation session in storage
-          const context = pageContext || initialPageContext;
-          if (context) {
-            const updatedSession: ConversationSession = {
-              id: state.conversationId!,
-              url: context.url,
-              title: context.title,
-              messages: updatedMessages,
-              conversationId: state.conversationId!,
-              createdAt: new Date(), // This should be preserved from original
-              lastActivity: new Date(),
-            };
-
-            await storageService.saveConversation(updatedSession);
-          }
-        }
+        // Set loading to false - SSE will handle all message updates including the user message
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+        }));
       } catch (error) {
         setState((prev) => ({
           ...prev,

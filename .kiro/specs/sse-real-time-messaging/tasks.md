@@ -8,7 +8,7 @@
   - Handle `message_created` events and convert to ChatMessage format
   - _Requirements: 1.1, 1.2, 2.1_
 
-- [-] 2. Integrate SSE with useBotpressChat hook
+- [ ] 2. Integrate SSE with useBotpressChat hook
 
   - Add `isListening` state to track SSE connection status
   - Start SSE listening when a conversation becomes active
