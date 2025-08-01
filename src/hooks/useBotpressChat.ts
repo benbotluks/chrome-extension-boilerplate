@@ -14,6 +14,7 @@ interface ChatState {
   error: string | null;
   conversationId: string | null;
   isConfigured: boolean;
+  isListening: boolean;
 }
 
 interface UseBotpressChatReturn {
@@ -23,6 +24,7 @@ interface UseBotpressChatReturn {
   error: string | null;
   conversationId: string | null;
   isConfigured: boolean;
+  isListening: boolean;
 
   // Actions
   sendMessage: (content: string, pageContext?: PageContent) => Promise<void>;
@@ -43,6 +45,7 @@ export const useBotpressChat = (
     error: null,
     conversationId: null,
     isConfigured: false,
+    isListening: false,
   });
 
   // Initialize configuration on mount
@@ -96,6 +99,95 @@ export const useBotpressChat = (
 
     loadExistingConversation();
   }, [initialPageContext, state.isConfigured]);
+
+  // Handle SSE connection when conversation becomes active
+  useEffect(() => {
+    const startSSEListening = async () => {
+      if (!state.conversationId || !state.isConfigured) {
+        return;
+      }
+
+      try {
+        setState((prev) => ({ ...prev, isListening: true }));
+
+        const result = await botpressService.startListening(
+          state.conversationId,
+          (message: ChatMessage) => {
+            // Update messages state when SSE events are received
+            setState((prev) => {
+              // Check if message already exists to prevent duplicates
+              const messageExists = prev.messages.some(
+                (existingMessage) => existingMessage.id === message.id
+              );
+
+              if (messageExists) {
+                return prev;
+              }
+
+              const updatedMessages = [...prev.messages, message];
+
+              // Update conversation session in storage
+              if (initialPageContext) {
+                const updatedSession: ConversationSession = {
+                  id: state.conversationId!,
+                  url: initialPageContext.url,
+                  title: initialPageContext.title,
+                  messages: updatedMessages,
+                  conversationId: state.conversationId!,
+                  createdAt: new Date(), // This should be preserved from original
+                  lastActivity: new Date(),
+                };
+
+                storageService
+                  .saveConversation(updatedSession)
+                  .catch((error) => {
+                    console.error(
+                      "Failed to save conversation after SSE message:",
+                      error
+                    );
+                  });
+              }
+
+              return {
+                ...prev,
+                messages: updatedMessages,
+              };
+            });
+          }
+        );
+
+        if (!result.success) {
+          console.error("Failed to start SSE listening:", result.error);
+          setState((prev) => ({ ...prev, isListening: false }));
+        }
+      } catch (error) {
+        console.error("Error starting SSE listening:", error);
+        setState((prev) => ({ ...prev, isListening: false }));
+      }
+    };
+
+    const stopSSEListening = async () => {
+      if (state.isListening) {
+        try {
+          await botpressService.stopListening();
+          setState((prev) => ({ ...prev, isListening: false }));
+        } catch (error) {
+          console.error("Error stopping SSE listening:", error);
+        }
+      }
+    };
+
+    if (state.conversationId && state.isConfigured) {
+      startSSEListening();
+    } else {
+      stopSSEListening();
+    }
+
+    // Cleanup function to stop listening when conversation changes or component unmounts
+    return () => {
+      stopSSEListening();
+    };
+  }, [state.conversationId, state.isConfigured, initialPageContext]);
 
   const configure = useCallback(
     async (config: BotpressConfig): Promise<boolean> => {
@@ -256,40 +348,49 @@ export const useBotpressChat = (
           return;
         }
 
-        // Get updated messages from Botpress
-        const messagesResult = await botpressService.getMessages(
-          state.conversationId!
-        );
-        if (messagesResult.error) {
+        // If SSE is active, rely on SSE events to update the UI
+        // Otherwise, fall back to manual message fetching
+        if (state.isListening) {
           setState((prev) => ({
             ...prev,
             isLoading: false,
-            error: messagesResult.error!.message,
           }));
-          return;
-        }
+        } else {
+          // Fallback: Get updated messages from Botpress manually
+          const messagesResult = await botpressService.getMessages(
+            state.conversationId!
+          );
+          if (messagesResult.error) {
+            setState((prev) => ({
+              ...prev,
+              isLoading: false,
+              error: messagesResult.error!.message,
+            }));
+            return;
+          }
 
-        const updatedMessages = messagesResult.messages || [];
-        setState((prev) => ({
-          ...prev,
-          messages: updatedMessages,
-          isLoading: false,
-        }));
-
-        // Update conversation session in storage
-        const context = pageContext || initialPageContext;
-        if (context) {
-          const updatedSession: ConversationSession = {
-            id: state.conversationId!,
-            url: context.url,
-            title: context.title,
+          const updatedMessages = messagesResult.messages || [];
+          setState((prev) => ({
+            ...prev,
             messages: updatedMessages,
-            conversationId: state.conversationId!,
-            createdAt: new Date(), // This should be preserved from original
-            lastActivity: new Date(),
-          };
+            isLoading: false,
+          }));
 
-          await storageService.saveConversation(updatedSession);
+          // Update conversation session in storage
+          const context = pageContext || initialPageContext;
+          if (context) {
+            const updatedSession: ConversationSession = {
+              id: state.conversationId!,
+              url: context.url,
+              title: context.title,
+              messages: updatedMessages,
+              conversationId: state.conversationId!,
+              createdAt: new Date(), // This should be preserved from original
+              lastActivity: new Date(),
+            };
+
+            await storageService.saveConversation(updatedSession);
+          }
         }
       } catch (error) {
         setState((prev) => ({
@@ -360,6 +461,7 @@ export const useBotpressChat = (
     error: state.error,
     conversationId: state.conversationId,
     isConfigured: state.isConfigured,
+    isListening: state.isListening,
     sendMessage,
     startNewConversation,
     loadConversationHistory,

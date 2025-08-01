@@ -254,7 +254,6 @@ listener.on('error', async (error) => {
     const { messages } = await client.listMessages({
       conversationId: conversation.id
     })
-    
     // Update local state with any missed messages
     syncLocalState(messages)
     

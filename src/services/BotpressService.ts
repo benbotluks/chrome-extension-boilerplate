@@ -207,7 +207,7 @@ export class BotpressService {
         conversationId,
       });
 
-      const messages: ChatMessage[] = response.messages.map((msg) => {
+      const messages: ChatMessage[] = response.messages.reverse().map((msg) => {
         // Safely create timestamp with fallback
         let timestamp: Date;
         try {
