@@ -278,24 +278,28 @@ export class StorageService {
   }
 
   /**
-   * Save conversation session to local storage
+   * Save conversation session to local storage (associated with current user key)
    */
   async saveConversation(conversation: ConversationSession): Promise<void> {
     try {
+      const userKey = await this.loadUserKey();
+      if (!userKey) {
+        throw new Error("No user key found - cannot save conversation");
+      }
+
       const conversations = await this.loadAllConversations();
       conversations[conversation.id] = conversation;
 
-      await this.setToLocalStorage(
-        this.STORAGE_KEYS.CONVERSATIONS,
-        conversations
-      );
+      // Store conversations under user-specific key
+      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${userKey}`;
+      await this.setToLocalStorage(userSpecificKey, conversations);
     } catch (error) {
       throw new Error(`Failed to save conversation: ${error}`);
     }
   }
 
   /**
-   * Load a specific conversation by ID
+   * Load a specific conversation by ID (for current user)
    */
   async loadConversation(
     conversationId: string
@@ -309,13 +313,18 @@ export class StorageService {
   }
 
   /**
-   * Load all conversations
+   * Load all conversations for the current user
    */
   async loadAllConversations(): Promise<Record<string, ConversationSession>> {
     try {
-      const conversations = await this.getFromLocalStorage(
-        this.STORAGE_KEYS.CONVERSATIONS
-      );
+      const userKey = await this.loadUserKey();
+      if (!userKey) {
+        return {}; // No user key means no conversations
+      }
+
+      // Load conversations for the specific user
+      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${userKey}`;
+      const conversations = await this.getFromLocalStorage(userSpecificKey);
       return conversations || {};
     } catch (error) {
       throw new Error(`Failed to load conversations: ${error}`);
@@ -323,17 +332,21 @@ export class StorageService {
   }
 
   /**
-   * Delete a specific conversation
+   * Delete a specific conversation (for current user)
    */
   async deleteConversation(conversationId: string): Promise<void> {
     try {
+      const userKey = await this.loadUserKey();
+      if (!userKey) {
+        throw new Error("No user key found - cannot delete conversation");
+      }
+
       const conversations = await this.loadAllConversations();
       delete conversations[conversationId];
 
-      await this.setToLocalStorage(
-        this.STORAGE_KEYS.CONVERSATIONS,
-        conversations
-      );
+      // Store updated conversations under user-specific key
+      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${userKey}`;
+      await this.setToLocalStorage(userSpecificKey, conversations);
     } catch (error) {
       throw new Error(`Failed to delete conversation: ${error}`);
     }

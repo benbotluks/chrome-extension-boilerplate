@@ -3,7 +3,6 @@ import type {
   BotpressConfig,
   ChatMessage,
   ConversationSession,
-  PageContent,
 } from "../types";
 import StorageService from "./StorageService";
 
