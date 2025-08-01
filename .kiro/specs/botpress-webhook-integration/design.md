@@ -62,9 +62,15 @@ The application will use React's built-in state management with custom hooks:
 ```typescript
 interface BotpressConfig {
   webhookId: string;
-  apiKey?: string;
-  baseUrl?: string;
+  apiUrl?: string;
   isConfigured: boolean;
+}
+
+interface BotpressUserSession {
+  userKey: string;
+  userId?: string;
+  createdAt: Date;
+  lastUsed: Date;
 }
 
 interface ChatMessage {
@@ -80,10 +86,12 @@ interface ConversationState {
   messages: ChatMessage[];
   isLoading: boolean;
   error?: string;
+  userSession?: BotpressUserSession;
 }
 
 interface StorageData {
   config: BotpressConfig;
+  userSession?: BotpressUserSession;
   conversations: Record<string, ChatMessage[]>;
   activeConversationId?: string;
 }
@@ -130,7 +138,112 @@ interface StorageData {
   - Send button state management
   - Input validation
 
+## Authentication Architecture
+
+### User Session Management
+
+The extension implements persistent user authentication using the Botpress Chat API's user key system. This ensures that conversations can be loaded and continued across browser sessions.
+
+#### Authentication Strategy
+
+1. **First-Time Connection**
+   - Connect to Botpress without user key: `chat.Client.connect({ webhookId })`
+   - Botpress automatically creates new user via `createUser()` API
+   - Store returned `client.user.key` in Chrome sync storage
+   - Use authenticated client for all subsequent operations
+
+2. **Returning User Connection**
+   - Retrieve stored user key from Chrome sync storage
+   - Connect with existing key: `chat.Client.connect({ webhookId, userKey })`
+   - If key is valid, get authenticated client for existing user
+   - If key is invalid, fall back to creating new user
+
+3. **Session Persistence**
+   - User key stored securely in Chrome sync storage
+   - Session data includes creation time and last used timestamp
+   - Automatic cleanup of expired or invalid sessions
+
+#### Error Recovery
+
+- **Invalid User Key**: Create new user session and inform user
+- **Network Errors**: Retry with exponential backoff
+- **Storage Errors**: Fall back to session-only mode
+- **Authentication Failures**: Clear stored session and create new user
+
+### Service Layer Architecture
+
+The `BotpressService` class manages the authenticated client lifecycle:
+
+```typescript
+class BotpressService {
+  private client?: AuthenticatedClient;
+  private userSession?: BotpressUserSession;
+  
+  async connect(config: BotpressConfig): Promise<void> {
+    const storedSession = await this.getStoredUserSession();
+    
+    if (storedSession) {
+      // Try to connect with existing user key
+      try {
+        this.client = await chat.Client.connect({
+          webhookId: config.webhookId,
+          userKey: storedSession.userKey
+        });
+        await this.updateSessionLastUsed(storedSession);
+      } catch (error) {
+        // Fall back to creating new user
+        await this.createNewUserSession(config);
+      }
+    } else {
+      // First time connection - create new user
+      await this.createNewUserSession(config);
+    }
+  }
+  
+  private async createNewUserSession(config: BotpressConfig): Promise<void> {
+    this.client = await chat.Client.connect({
+      webhookId: config.webhookId
+    });
+    
+    const userSession: BotpressUserSession = {
+      userKey: this.client.user.key,
+      userId: this.client.user.id,
+      createdAt: new Date(),
+      lastUsed: new Date()
+    };
+    
+    await this.storeUserSession(userSession);
+    this.userSession = userSession;
+  }
+}
+```
+
 ## Data Models
+
+### User Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant E as Extension
+    participant S as BotpressService
+    participant ST as Chrome Storage
+    participant B as Botpress API
+    
+    E->>ST: Check for stored user key
+    alt User key exists
+        ST-->>E: Return stored user key
+        E->>S: Connect with existing user key
+        S->>B: chat.Client.connect({webhookId, userKey})
+        B-->>S: AuthenticatedClient
+    else No user key
+        E->>S: Connect without user key
+        S->>B: chat.Client.connect({webhookId})
+        B->>B: createUser() automatically
+        B-->>S: AuthenticatedClient with new user key
+        S->>ST: Store client.user.key
+    end
+    S-->>E: Ready for chat operations
+```
 
 ### Message Flow Architecture
 
@@ -142,10 +255,11 @@ sequenceDiagram
     participant B as Botpress API
     participant ST as Chrome Storage
     
+    Note over S,B: Client already authenticated with user key
     U->>C: Type message
     C->>S: sendMessage(text)
     S->>ST: Save user message
-    S->>B: createMessage(payload)
+    S->>B: createMessage(payload) with x-user-key header
     B-->>S: Response
     S->>ST: Save bot response
     S-->>C: Update conversation
@@ -174,14 +288,19 @@ The Chrome extension will use both local and sync storage:
 }
 ```
 
-**Sync Storage** (for configuration):
+**Sync Storage** (for configuration and user session):
 ```json
 {
   "config": {
     "webhookId": "webhook_123",
-    "apiKey": "encrypted_key",
-    "baseUrl": "https://api.botpress.dev",
+    "apiUrl": "https://chat.botpress.cloud",
     "isConfigured": true
+  },
+  "userSession": {
+    "userKey": "encrypted_user_key_from_botpress",
+    "userId": "user_123",
+    "createdAt": "2024-01-01T10:00:00Z",
+    "lastUsed": "2024-01-01T12:00:00Z"
   }
 }
 ```
@@ -192,23 +311,29 @@ The Chrome extension will use both local and sync storage:
 
 1. **Configuration Errors**
    - Invalid webhook URL format
-   - Missing required credentials
-   - Authentication failures
+   - Missing webhook ID
+   - Connection failures to Botpress API
    - Response: Clear error messages with correction guidance
 
-2. **Network Errors**
+2. **Authentication Errors**
+   - Invalid or expired user key
+   - User session corruption
+   - Failed user creation
+   - Response: Automatic fallback to new user creation with user notification
+
+3. **Network Errors**
    - Connection timeouts
    - API rate limiting
    - Service unavailability
    - Response: Retry mechanisms with exponential backoff
 
-3. **Storage Errors**
+4. **Storage Errors**
    - Quota exceeded
    - Permission denied
    - Data corruption
    - Response: Graceful degradation to session storage
 
-4. **Validation Errors**
+5. **Validation Errors**
    - Empty messages
    - Invalid message formats
    - Character limits exceeded
