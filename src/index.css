@@ -58,6 +58,24 @@
   body {
     margin: 0;
     padding: 0;
+    width: 400px;
+    height: 600px;
+    min-width: 400px;
+    min-height: 600px;
+  }
+
+  html {
+    width: 400px;
+    height: 600px;
+    min-width: 400px;
+    min-height: 600px;
+  }
+
+  #root {
+    width: 400px;
+    height: 600px;
+    min-width: 400px;
+    min-height: 600px;
   }
 
   button {

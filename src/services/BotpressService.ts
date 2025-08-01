@@ -181,13 +181,33 @@ User Question: ${content}`;
         conversationId,
       });
 
-      const messages: ChatMessage[] = response.messages.map((msg) => ({
-        id: msg.id,
-        type: msg.userId === "user" ? "user" : "bot",
-        content:
-          msg.payload.type === "text" ? msg.payload.text : "[Non-text message]",
-        timestamp: new Date(msg.createdAt),
-      }));
+      const messages: ChatMessage[] = response.messages.map((msg) => {
+        // Safely create timestamp with fallback
+        let timestamp: Date;
+        try {
+          timestamp = msg.createdAt ? new Date(msg.createdAt) : new Date();
+          // Check if the date is valid
+          if (isNaN(timestamp.getTime())) {
+            timestamp = new Date();
+          }
+        } catch (error) {
+          console.warn(
+            "Invalid timestamp from Botpress message:",
+            msg.createdAt
+          );
+          timestamp = new Date();
+        }
+
+        return {
+          id: msg.id,
+          type: msg.userId === "user" ? "user" : "bot",
+          content:
+            msg.payload.type === "text"
+              ? msg.payload.text
+              : "[Non-text message]",
+          timestamp,
+        };
+      });
 
       return { messages };
     } catch (error: any) {

@@ -37,22 +37,16 @@ function App() {
     clearError
   } = useBotpressChat(pageContent);
 
-  console.log('App render - isConfigured:', isConfigured, 'currentView:', currentView);
-
   // Initialize the app
   useEffect(() => {
-    console.log('App useEffect triggered, isConfigured:', isConfigured, 'currentView:', currentView);
-
     // Handle initial loading
     if (currentView === 'loading') {
       const initializeApp = async () => {
         await new Promise(resolve => setTimeout(resolve, 500));
 
         if (isConfigured) {
-          console.log('Initial load: Setting view to chat');
           setCurrentView('chat');
         } else {
-          console.log('Initial load: Setting view to configuration');
           setCurrentView('configuration');
         }
       };
@@ -63,25 +57,19 @@ function App() {
 
     // Handle configuration state changes (no delay needed)
     if (isConfigured && currentView !== 'chat') {
-      console.log('Configuration changed: Setting view to chat');
       setCurrentView('chat');
     } else if (!isConfigured && currentView !== 'configuration') {
-      console.log('Configuration changed: Setting view to configuration');
       setCurrentView('configuration');
     }
   }, [isConfigured]);
 
 
   const handleConfigurationComplete = async (config: BotpressConfig): Promise<boolean> => {
-    console.log('handleConfigurationComplete called with:', config);
     const success = await configure(config);
-    console.log('Configure result:', success);
     if (success) {
-      setCurrentView('chat')
-      console.log('Configuration successful, useEffect will handle view change');
+      setCurrentView('chat');
       return true;
     } else {
-      console.log('Configuration failed');
       // Error handling is done in the configure function
       return false;
     }
