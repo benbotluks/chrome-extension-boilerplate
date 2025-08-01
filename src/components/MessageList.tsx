@@ -7,9 +7,10 @@ import { Message } from './messages';
 interface MessageListProps {
   messages: ChatMessage[];
   isLoading?: boolean;
+  isTyping?: boolean;
 }
 
-const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = false }) => {
+const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = false, isTyping = false }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to latest messages
@@ -36,7 +37,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading = false }
           />
         ))}
 
-        {isLoading && <TypingWidget />}
+        {isTyping && <TypingWidget />}
 
         <div ref={messagesEndRef} />
       </div>

@@ -34,7 +34,8 @@ function App() {
     conversationId,
     sendMessage,
     startNewConversation,
-    clearError
+    clearError,
+    isTyping
   } = useBotpressChat(pageContent);
 
   // Initialize the app
@@ -106,6 +107,7 @@ function App() {
           onConfigurationNeeded={handleConfigurationNeeded}
           messages={messages}
           isLoading={isLoading}
+          isTyping={isTyping}
           error={error}
           conversationId={conversationId}
           isConfigured={isConfigured}

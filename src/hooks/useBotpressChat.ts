@@ -15,6 +15,7 @@ interface ChatState {
   conversationId: string | null;
   isConfigured: boolean;
   isListening: boolean;
+  isTyping: boolean;
 }
 
 interface UseBotpressChatReturn {
@@ -25,6 +26,7 @@ interface UseBotpressChatReturn {
   conversationId: string | null;
   isConfigured: boolean;
   isListening: boolean;
+  isTyping: boolean;
 
   // Actions
   sendMessage: (content: string, pageContext?: PageContent) => Promise<void>;
@@ -46,6 +48,7 @@ export const useBotpressChat = (
     conversationId: null,
     isConfigured: false,
     isListening: false,
+    isTyping: false,
   });
 
   // Use ref to track current listening state to avoid stale closure issues
@@ -159,6 +162,7 @@ export const useBotpressChat = (
 
               return {
                 ...prev,
+                isTyping: false,
                 messages: updatedMessages,
               };
             });
@@ -343,11 +347,15 @@ export const useBotpressChat = (
           return;
         }
 
-        // Set loading to false - SSE will handle all message updates including the user message
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-        }));
+        // Set loading to false and typing to true - SSE will handle all message updates
+        setState((prev) => {
+          console.log("Setting isTyping to true after sending message");
+          return {
+            ...prev,
+            isLoading: false,
+            isTyping: true,
+          };
+        });
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -414,6 +422,7 @@ export const useBotpressChat = (
   return {
     messages: state.messages,
     isLoading: state.isLoading,
+    isTyping: state.isTyping,
     error: state.error,
     conversationId: state.conversationId,
     isConfigured: state.isConfigured,

@@ -9,6 +9,7 @@ interface ChatInterfaceProps {
   onConfigurationNeeded?: () => void;
   messages: ChatMessage[];
   isLoading: boolean;
+  isTyping: boolean;
   error: string | null;
   conversationId: string | null;
   isConfigured: boolean;
@@ -22,6 +23,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onConfigurationNeeded,
   messages,
   isLoading,
+  isTyping,
   error,
   conversationId,
   isConfigured,
@@ -170,7 +172,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Main chat area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <MessageList messages={messages} isLoading={isLoading} />
+        <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
         
         {/* Show suggested questions when no messages */}
         {messages.length === 0 && !isLoading && (

@@ -1,3 +1,5 @@
+import React from 'react';
+
 export const TypingWidget: React.FC<{}> = () => {
     return <div className="flex justify-start mb-2">
         <div className="max-w-[80%] min-w-[120px]">
