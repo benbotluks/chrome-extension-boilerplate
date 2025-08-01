@@ -26,6 +26,7 @@ describe("StorageService", () => {
       get: vi.fn().mockResolvedValue({}),
       set: vi.fn().mockResolvedValue(undefined),
       clear: vi.fn().mockResolvedValue(undefined),
+      remove: vi.fn().mockResolvedValue(undefined),
       getBytesInUse: vi.fn().mockResolvedValue(500),
     };
 
@@ -227,6 +228,98 @@ describe("StorageService", () => {
       const result = await storageService.getCurrentSession();
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe("User Key Management", () => {
+    const testUserKey = "test-user-key-123";
+
+    it("should save user key securely", async () => {
+      await storageService.saveUserKey(testUserKey);
+
+      expect(mockSyncStorage.set).toHaveBeenCalledWith({
+        user_session: expect.objectContaining({
+          userKey: testUserKey,
+          createdAt: expect.any(Date),
+          lastUsed: expect.any(Date),
+        }),
+      });
+    });
+
+    it("should load stored user key and update last used timestamp", async () => {
+      const mockUserSession = {
+        userKey: testUserKey,
+        createdAt: new Date("2024-01-01"),
+        lastUsed: new Date("2024-01-01"),
+      };
+
+      mockSyncStorage.get.mockResolvedValue({
+        user_session: mockUserSession,
+      });
+
+      const result = await storageService.loadUserKey();
+
+      expect(result).toBe(testUserKey);
+      expect(mockSyncStorage.set).toHaveBeenCalledWith({
+        user_session: expect.objectContaining({
+          userKey: testUserKey,
+          createdAt: mockUserSession.createdAt,
+          lastUsed: expect.any(Date),
+        }),
+      });
+    });
+
+    it("should return null when no user key exists", async () => {
+      mockSyncStorage.get.mockResolvedValue({});
+
+      const result = await storageService.loadUserKey();
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null when user session exists but no user key", async () => {
+      mockSyncStorage.get.mockResolvedValue({
+        user_session: {
+          createdAt: new Date("2024-01-01"),
+          lastUsed: new Date("2024-01-01"),
+        },
+      });
+
+      const result = await storageService.loadUserKey();
+
+      expect(result).toBeNull();
+    });
+
+    it("should clear user key from storage", async () => {
+      await storageService.clearUserKey();
+
+      expect(mockSyncStorage.remove).toHaveBeenCalledWith(["user_session"]);
+    });
+
+    it("should handle errors when saving user key", async () => {
+      mockSyncStorage.set.mockRejectedValue(new Error("Storage error"));
+
+      await expect(storageService.saveUserKey(testUserKey)).rejects.toThrow(
+        "Failed to save user key"
+      );
+    });
+
+    it("should handle errors when loading user key", async () => {
+      mockSyncStorage.get.mockRejectedValue(new Error("Storage error"));
+
+      await expect(storageService.loadUserKey()).rejects.toThrow(
+        "Failed to load user key"
+      );
+    });
+
+    it("should handle errors when clearing user key", async () => {
+      mockSyncStorage.remove = vi
+        .fn()
+        .mockRejectedValue(new Error("Storage error"));
+
+      await expect(storageService.clearUserKey()).rejects.toThrow(
+        "Failed to clear user key"
+      );
     });
   });
 

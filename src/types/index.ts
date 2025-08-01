@@ -12,6 +12,13 @@ export interface BotpressConfig {
   isConfigured: boolean;
 }
 
+export interface BotpressUserSession {
+  userKey: string;
+  userId?: string;
+  createdAt: Date;
+  lastUsed: Date;
+}
+
 export interface PageMetadata {
   author?: string;
   publishDate?: string;

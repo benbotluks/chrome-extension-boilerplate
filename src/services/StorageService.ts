@@ -1,5 +1,6 @@
 import {
   BotpressConfig,
+  BotpressUserSession,
   ConversationSession,
   StorageQuota,
   StorageConfig,
@@ -16,6 +17,7 @@ export class StorageService {
     CONVERSATIONS: "conversations",
     STORAGE_CONFIG: "storage_config",
     CURRENT_SESSION: "current_session",
+    USER_SESSION: "user_session",
   } as const;
 
   // Check if Chrome extension APIs are available
@@ -216,6 +218,62 @@ export class StorageService {
       };
     } catch (error) {
       throw new Error(`Failed to load Botpress config: ${error}`);
+    }
+  }
+
+  /**
+   * Save user key securely to sync storage
+   */
+  async saveUserKey(userKey: string): Promise<void> {
+    try {
+      const userSession: BotpressUserSession = {
+        userKey,
+        createdAt: new Date(),
+        lastUsed: new Date(),
+      };
+
+      await this.setToStorage(this.STORAGE_KEYS.USER_SESSION, userSession);
+    } catch (error) {
+      throw new Error(`Failed to save user key: ${error}`);
+    }
+  }
+
+  /**
+   * Load stored user key from sync storage
+   */
+  async loadUserKey(): Promise<string | null> {
+    try {
+      const userSession = await this.getFromStorage(
+        this.STORAGE_KEYS.USER_SESSION
+      );
+
+      if (!userSession || !userSession.userKey) {
+        return null;
+      }
+
+      // Update last used timestamp
+      userSession.lastUsed = new Date();
+      await this.setToStorage(this.STORAGE_KEYS.USER_SESSION, userSession);
+
+      return userSession.userKey;
+    } catch (error) {
+      throw new Error(`Failed to load user key: ${error}`);
+    }
+  }
+
+  /**
+   * Clear stored user key for cleanup/reset scenarios
+   */
+  async clearUserKey(): Promise<void> {
+    try {
+      if (this.isExtensionContext) {
+        await chrome.storage.sync.remove([this.STORAGE_KEYS.USER_SESSION]);
+      } else {
+        // Fallback to localStorage for development/testing
+        localStorage.removeItem(this.STORAGE_KEYS.USER_SESSION);
+      }
+    } catch (error) {
+      throw new Error(`Failed to clear user key: ${error}`);
     }
   }
 
