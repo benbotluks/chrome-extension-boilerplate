@@ -13,7 +13,7 @@ export interface BotpressConfig {
 }
 
 export interface BotpressUserSession {
-  userKey: string;
+  userKey: string | EncryptedData; // Support both legacy plain text and encrypted keys
   userId?: string;
   createdAt: Date;
   lastUsed: Date;

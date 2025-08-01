@@ -4,6 +4,7 @@ import {
   ConversationSession,
   StorageQuota,
   StorageConfig,
+  EncryptedData,
 } from "../types";
 
 /**
@@ -86,105 +87,123 @@ export class StorageService {
   /**
    * Encrypt sensitive data using Web Crypto API
    */
-  // private async _encryptData(data: string): Promise<EncryptedData> {
-  //   const encoder = new TextEncoder();
-  //   const dataBuffer = encoder.encode(data);
+  private async encryptData(data: string): Promise<EncryptedData> {
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
 
-  //   // Generate a random salt and IV
-  //   const salt = crypto.getRandomValues(new Uint8Array(16));
-  //   const iv = crypto.getRandomValues(new Uint8Array(12));
+    // Generate a random salt and IV
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
 
-  //   // Derive key from a base key (in production, this should be more secure)
-  //   const baseKey = await crypto.subtle.importKey(
-  //     "raw",
-  //     encoder.encode("botpress-extension-key"),
-  //     { name: "PBKDF2" },
-  //     false,
-  //     ["deriveKey"]
-  //   );
+    // Derive key from a base key (in production, this should be more secure)
+    const baseKey = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode("botpress-extension-key"),
+      { name: "PBKDF2" },
+      false,
+      ["deriveKey"]
+    );
 
-  //   const key = await crypto.subtle.deriveKey(
-  //     {
-  //       name: "PBKDF2",
-  //       salt: salt,
-  //       iterations: 100000,
-  //       hash: "SHA-256",
-  //     },
-  //     baseKey,
-  //     { name: "AES-GCM", length: 256 },
-  //     false,
-  //     ["encrypt"]
-  //   );
+    const key = await crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256",
+      },
+      baseKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt"]
+    );
 
-  //   // Encrypt the data
-  //   const encryptedBuffer = await crypto.subtle.encrypt(
-  //     { name: "AES-GCM", iv: iv },
-  //     key,
-  //     dataBuffer
-  //   );
+    // Encrypt the data
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      dataBuffer
+    );
 
-  //   return {
-  //     data: Array.from(new Uint8Array(encryptedBuffer))
-  //       .map((b) => b.toString(16).padStart(2, "0"))
-  //       .join(""),
-  //     iv: Array.from(iv)
-  //       .map((b) => b.toString(16).padStart(2, "0"))
-  //       .join(""),
-  //     salt: Array.from(salt)
-  //       .map((b) => b.toString(16).padStart(2, "0"))
-  //       .join(""),
-  //   };
-  // }
+    return {
+      data: Array.from(new Uint8Array(encryptedBuffer))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join(""),
+      iv: Array.from(iv)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join(""),
+      salt: Array.from(salt)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join(""),
+    };
+  }
 
   /**
    * Decrypt sensitive data using Web Crypto API
    */
-  // private async decryptData(encryptedData: EncryptedData): Promise<string> {
-  //   const encoder = new TextEncoder();
-  //   const decoder = new TextDecoder();
+  private async decryptData(encryptedData: EncryptedData): Promise<string> {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
 
-  //   // Convert hex strings back to Uint8Arrays
-  //   const data = new Uint8Array(
-  //     encryptedData.data.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
-  //   );
-  //   const iv = new Uint8Array(
-  //     encryptedData.iv.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
-  //   );
-  //   const salt = new Uint8Array(
-  //     encryptedData.salt.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
-  //   );
+    // Convert hex strings back to Uint8Arrays
+    const data = new Uint8Array(
+      encryptedData.data
+        .match(/.{2}/g)!
+        .map((byte: string) => parseInt(byte, 16))
+    );
+    const iv = new Uint8Array(
+      encryptedData.iv.match(/.{2}/g)!.map((byte: string) => parseInt(byte, 16))
+    );
+    const salt = new Uint8Array(
+      encryptedData.salt
+        .match(/.{2}/g)!
+        .map((byte: string) => parseInt(byte, 16))
+    );
 
-  //   // Derive the same key
-  //   const baseKey = await crypto.subtle.importKey(
-  //     "raw",
-  //     encoder.encode("botpress-extension-key"),
-  //     { name: "PBKDF2" },
-  //     false,
-  //     ["deriveKey"]
-  //   );
+    // Derive the same key
+    const baseKey = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode("botpress-extension-key"),
+      { name: "PBKDF2" },
+      false,
+      ["deriveKey"]
+    );
 
-  //   const key = await crypto.subtle.deriveKey(
-  //     {
-  //       name: "PBKDF2",
-  //       salt: salt,
-  //       iterations: 100000,
-  //       hash: "SHA-256",
-  //     },
-  //     baseKey,
-  //     { name: "AES-GCM", length: 256 },
-  //     false,
-  //     ["decrypt"]
-  //   );
+    const key = await crypto.subtle.deriveKey(
+      {
+        name: "PBKDF2",
+        salt: salt,
+        iterations: 100000,
+        hash: "SHA-256",
+      },
+      baseKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["decrypt"]
+    );
 
-  //   // Decrypt the data
-  //   const decryptedBuffer = await crypto.subtle.decrypt(
-  //     { name: "AES-GCM", iv: iv },
-  //     key,
-  //     data
-  //   );
+    // Decrypt the data
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: iv },
+      key,
+      data
+    );
 
-  //   return decoder.decode(decryptedBuffer);
-  // }
+    return decoder.decode(decryptedBuffer);
+  }
+
+  /**
+   * Create a secure hash of the user key for storage namespacing
+   * This avoids exposing the actual user key in storage keys
+   */
+  private async hashUserKey(userKey: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(userKey);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray
+      .map((b: number) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
 
   /**
    * Save Botpress configuration with encryption
@@ -222,12 +241,15 @@ export class StorageService {
   }
 
   /**
-   * Save user key securely to sync storage
+   * Save user key securely to sync storage with encryption
    */
   async saveUserKey(userKey: string): Promise<void> {
     try {
+      // Encrypt the user key before storing
+      const encryptedUserKey = await this.encryptData(userKey);
+
       const userSession: BotpressUserSession = {
-        userKey,
+        userKey: encryptedUserKey,
         createdAt: new Date(),
         lastUsed: new Date(),
       };
@@ -239,7 +261,7 @@ export class StorageService {
   }
 
   /**
-   * Load stored user key from sync storage
+   * Load stored user key from sync storage with decryption
    */
   async loadUserKey(): Promise<string | null> {
     try {
@@ -251,11 +273,36 @@ export class StorageService {
         return null;
       }
 
-      // Update last used timestamp
+      // Decrypt the user key
+      let decryptedUserKey: string;
+      try {
+        // Handle both encrypted (new) and plain text (legacy) user keys
+        if (typeof userSession.userKey === "string") {
+          // Legacy plain text key - return as is but should be re-encrypted on next save
+          decryptedUserKey = userSession.userKey;
+        } else {
+          // New encrypted key
+          decryptedUserKey = await this.decryptData(userSession.userKey);
+        }
+      } catch (decryptError) {
+        console.warn(
+          "Failed to decrypt user key, treating as invalid:",
+          decryptError
+        );
+        return null;
+      }
+
+      // Update last used timestamp and re-encrypt if it was plain text
+      if (typeof userSession.userKey === "string") {
+        // Re-encrypt legacy plain text key
+        const encryptedUserKey = await this.encryptData(decryptedUserKey);
+        userSession.userKey = encryptedUserKey;
+      }
+
       userSession.lastUsed = new Date();
       await this.setToStorage(this.STORAGE_KEYS.USER_SESSION, userSession);
 
-      return userSession.userKey;
+      return decryptedUserKey;
     } catch (error) {
       throw new Error(`Failed to load user key: ${error}`);
     }
@@ -290,8 +337,9 @@ export class StorageService {
       const conversations = await this.loadAllConversations();
       conversations[conversation.id] = conversation;
 
-      // Store conversations under user-specific key
-      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${userKey}`;
+      // Use hashed user key for storage namespacing (security)
+      const hashedUserKey = await this.hashUserKey(userKey);
+      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${hashedUserKey}`;
       await this.setToLocalStorage(userSpecificKey, conversations);
     } catch (error) {
       throw new Error(`Failed to save conversation: ${error}`);
@@ -322,8 +370,9 @@ export class StorageService {
         return {}; // No user key means no conversations
       }
 
-      // Load conversations for the specific user
-      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${userKey}`;
+      // Use hashed user key for storage namespacing (security)
+      const hashedUserKey = await this.hashUserKey(userKey);
+      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${hashedUserKey}`;
       const conversations = await this.getFromLocalStorage(userSpecificKey);
       return conversations || {};
     } catch (error) {
@@ -344,8 +393,9 @@ export class StorageService {
       const conversations = await this.loadAllConversations();
       delete conversations[conversationId];
 
-      // Store updated conversations under user-specific key
-      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${userKey}`;
+      // Use hashed user key for storage namespacing (security)
+      const hashedUserKey = await this.hashUserKey(userKey);
+      const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${hashedUserKey}`;
       await this.setToLocalStorage(userSpecificKey, conversations);
     } catch (error) {
       throw new Error(`Failed to delete conversation: ${error}`);
