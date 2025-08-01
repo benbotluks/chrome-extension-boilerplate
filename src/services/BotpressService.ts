@@ -5,6 +5,7 @@ import type {
   ConversationSession,
   PageContent,
 } from "../types";
+import StorageService from "./StorageService";
 
 export interface BotpressServiceError {
   type: "authentication" | "network" | "api_limit" | "validation" | "unknown";
@@ -16,8 +17,10 @@ export class BotpressService {
   private client: chat.AuthenticatedClient | null = null;
   private config: BotpressConfig | null = null;
   private userId: string | null = null;
+  private storageService: StorageService;
 
   constructor(config?: BotpressConfig) {
+    this.storageService = StorageService.getInstance();
     if (config) {
       this.configure(config);
     }
@@ -32,12 +35,53 @@ export class BotpressService {
       isConfigured: config.isConfigured,
     });
     this.config = config;
+
     if (config.webhookId && config.isConfigured) {
       try {
+        // Check for stored user key before connecting
+        const storedUserKey = await this.storageService.loadUserKey();
+
+        if (storedUserKey) {
+          console.log(
+            "Found stored user key, attempting to connect with existing user"
+          );
+          try {
+            // Connect with stored user key
+            this.client = await chat.Client.connect({
+              webhookId: config.webhookId,
+              userKey: storedUserKey,
+            });
+            console.log(
+              "Successfully connected to Botpress with stored user key:",
+              this.client
+            );
+            const { user } = await this.client.getUser({});
+            this.userId = user.id;
+            return; // Successfully connected with stored key
+          } catch (error) {
+            console.warn(
+              "Failed to connect with stored user key, creating new user:",
+              error
+            );
+            // Clear invalid user key and fall through to create new user
+            await this.storageService.clearUserKey();
+          }
+        }
+
+        // No stored key or connection failed, create new user and store the key
+        console.log("Creating new user session");
         this.client = await chat.Client.connect({
           webhookId: config.webhookId,
         });
-        console.log("Successfully connected to Botpress:", this.client);
+        console.log(
+          "Successfully connected to Botpress with new user:",
+          this.client
+        );
+
+        // Store the new user key after successful connection
+        await this.storageService.saveUserKey(this.client.user.key);
+        console.log("Stored new user key for future sessions");
+
         const { user } = await this.client.getUser({});
         this.userId = user.id;
       } catch (error) {
@@ -115,8 +159,7 @@ export class BotpressService {
    */
   async sendMessage(
     conversationId: string,
-    content: string,
-    pageContext?: PageContent
+    content: string
   ): Promise<{ success: boolean; error?: BotpressServiceError }> {
     if (!this.client || !this.config) {
       return {
@@ -129,28 +172,9 @@ export class BotpressService {
     }
 
     try {
-      // Prepare the message with context
-      let messageContent = content;
-
-      if (pageContext) {
-        const contextInfo = `
-Page Context:
-- URL: ${pageContext.url}
-- Title: ${pageContext.title}
-- Content Type: ${pageContext.contentType}
-- Domain: ${pageContext.domain}
-
-Page Content:
-${pageContext.extractedText}
-
-User Question: ${content}`;
-
-        messageContent = contextInfo;
-      }
-
       await this.client.createMessage({
         conversationId,
-        payload: { type: "text", text: messageContent },
+        payload: { type: "text", text: content },
       });
 
       return { success: true };

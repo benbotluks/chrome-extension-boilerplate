@@ -244,8 +244,7 @@ export const useBotpressChat = (
         // Send message to Botpress
         const sendResult = await botpressService.sendMessage(
           state.conversationId!,
-          content,
-          pageContext || initialPageContext
+          content
         );
 
         if (sendResult.error) {

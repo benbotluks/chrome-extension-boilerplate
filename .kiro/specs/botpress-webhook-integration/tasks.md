@@ -9,7 +9,7 @@
   - Add `clearUserKey()` method for cleanup/reset scenarios
   - _Requirements: 5.2, 5.5_
 
-- [ ] 2. Update BotpressService to handle user key persistence
+- [x] 2. Update BotpressService to handle user key persistence
   - Modify `configure()` method to check for stored user key before connecting
   - Connect with stored user key if available: `chat.Client.connect({ webhookId, userKey })`
   - If no stored key or connection fails, create new user and store the key

@@ -2,29 +2,60 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { BotpressService } from "./BotpressService";
 import type { BotpressConfig, PageContent } from "../types";
 
+// Mock StorageService
+vi.mock("./StorageService", () => {
+  const mockStorageService = {
+    getInstance: vi.fn(() => ({
+      loadUserKey: vi.fn().mockResolvedValue(null),
+      saveUserKey: vi.fn().mockResolvedValue(undefined),
+      clearUserKey: vi.fn().mockResolvedValue(undefined),
+    })),
+  };
+  return {
+    default: mockStorageService,
+  };
+});
+
+// Mock the @botpress/chat module
+vi.mock("@botpress/chat", () => {
+  const mockClient = {
+    user: {
+      id: "test-user-id",
+      key: "test-user-key",
+    },
+    getUser: vi.fn().mockResolvedValue({
+      user: { id: "test-user-id" },
+    }),
+    createConversation: vi.fn(),
+    createMessage: vi.fn(),
+    listMessages: vi.fn(),
+    listConversations: vi.fn(),
+    deleteConversation: vi.fn(),
+  };
+
+  return {
+    Client: {
+      connect: vi.fn().mockResolvedValue(mockClient),
+    },
+    // Export a way to get the current mock client for testing
+    __getMockClient: () => mockClient,
+  };
+});
+
 // Create a mock client that we can control
 const createMockClient = () => ({
+  user: {
+    id: "test-user-id",
+    key: "test-user-key",
+  },
+  getUser: vi.fn().mockResolvedValue({
+    user: { id: "test-user-id" },
+  }),
   createConversation: vi.fn(),
   createMessage: vi.fn(),
   listMessages: vi.fn(),
   listConversations: vi.fn(),
   deleteConversation: vi.fn(),
-});
-
-// Mock the @botpress/chat module
-vi.mock("@botpress/chat", () => {
-  let mockClient: any = null;
-
-  return {
-    Client: {
-      connect: vi.fn().mockImplementation(async () => {
-        mockClient = createMockClient();
-        return mockClient;
-      }),
-    },
-    // Export a way to get the current mock client for testing
-    __getMockClient: () => mockClient,
-  };
 });
 
 describe("BotpressService", () => {
@@ -191,11 +222,7 @@ describe("BotpressService", () => {
         extractedAt: new Date(),
       };
 
-      const result = await service.sendMessage(
-        conversationId,
-        message,
-        pageContext
-      );
+      const result = await service.sendMessage(conversationId, message);
 
       expect(result.success).toBe(true);
       expect(mockClient.createMessage).toHaveBeenCalledWith({
