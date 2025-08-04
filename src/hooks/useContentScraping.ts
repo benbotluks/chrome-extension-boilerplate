@@ -18,14 +18,14 @@ export interface UseContentScrapingReturn {
   // Actions
   configure: (config: ContentScrapingConfig) => Promise<boolean>;
   testWebhook: () => Promise<boolean>;
-  extractContent: () => Promise<PageContent | null>;
+  extractContent: (conversationId?: string) => Promise<PageContent | null>;
   clearError: () => void;
 
   // Auto-scraping
   enableAutoScraping: (enabled: boolean) => Promise<void>;
 }
 
-export function useContentScraping(): UseContentScrapingReturn {
+export function useContentScraping(getCurrentConversationId?: () => string | null): UseContentScrapingReturn {
   const [config, setConfig] = useState<ContentScrapingConfig | null>(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [lastExtractedContent, setLastExtractedContent] =
@@ -127,7 +127,7 @@ export function useContentScraping(): UseContentScrapingReturn {
     }
   }, [config?.webhookUrl, webhookService]);
 
-  const extractContent = useCallback(async (): Promise<PageContent | null> => {
+  const extractContent = useCallback(async (conversationId?: string): Promise<PageContent | null> => {
     try {
       setError(null);
       setIsExtracting(true);
@@ -151,7 +151,7 @@ export function useContentScraping(): UseContentScrapingReturn {
       // Send to webhook if configured and enabled
       if (config?.enabled && webhookService.isEnabled()) {
         try {
-          await webhookService.sendPageContent(result.content);
+          await webhookService.sendPageContent(result.content, conversationId);
           console.log("Content sent to webhook successfully");
         } catch (webhookError) {
           console.error("Failed to send content to webhook:", webhookError);
@@ -183,7 +183,8 @@ export function useContentScraping(): UseContentScrapingReturn {
       // Debounce tab changes to avoid excessive scraping
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        extractContent();
+        const currentConversationId = getCurrentConversationId?.() || undefined;
+        extractContent(currentConversationId);
       }, 2000); // Wait 2 seconds after tab change
     };
 

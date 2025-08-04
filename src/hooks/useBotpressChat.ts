@@ -30,7 +30,7 @@ interface UseBotpressChatReturn {
 
   // Actions
   sendMessage: (content: string, pageContext?: PageContent | null) => Promise<void>;
-  startNewConversation: (pageContext?: PageContent | null) => Promise<void>;
+  startNewConversation: (pageContext?: PageContent | null) => Promise<string | null>;
   loadConversationHistory: (conversationId: string) => Promise<void>;
   clearError: () => void;
   configure: (config: BotpressConfig) => Promise<boolean>;
@@ -255,10 +255,10 @@ export const useBotpressChat = (
   );
 
   const startNewConversation = useCallback(
-    async (pageContext?: PageContent | null) => {
+    async (pageContext?: PageContent | null): Promise<string | null> => {
       if (!state.isConfigured) {
         setState((prev) => ({ ...prev, error: "Botpress not configured" }));
-        return;
+        return null;
       }
 
       try {
@@ -271,7 +271,7 @@ export const useBotpressChat = (
             isLoading: false,
             error: result.error!.message,
           }));
-          return;
+          return null;
         }
 
         const newConversationId = result.conversationId!;
@@ -298,6 +298,8 @@ export const useBotpressChat = (
           messages: [],
           isLoading: false,
         }));
+
+        return newConversationId;
       } catch (error) {
         setState((prev) => ({
           ...prev,
@@ -307,6 +309,7 @@ export const useBotpressChat = (
               ? error.message
               : "Failed to start conversation",
         }));
+        return null;
       }
     },
     [state.isConfigured, initialPageContext]
@@ -320,10 +323,10 @@ export const useBotpressChat = (
       }
 
       // Start new conversation if none exists
-      if (!state.conversationId) {
-        await startNewConversation(pageContext);
-        // Wait for conversation to be created
-        if (!state.conversationId) return;
+      let currentConversationId = state.conversationId;
+      if (!currentConversationId) {
+        currentConversationId = await startNewConversation(pageContext);
+        if (!currentConversationId) return;
       }
 
       try {
@@ -334,7 +337,7 @@ export const useBotpressChat = (
 
         // Send message to Botpress
         const sendResult = await botpressService.sendMessage(
-          state.conversationId!,
+          currentConversationId,
           content
         );
 
@@ -365,12 +368,7 @@ export const useBotpressChat = (
         }));
       }
     },
-    [
-      state.isConfigured,
-      state.conversationId,
-      initialPageContext,
-      startNewConversation,
-    ]
+    [state.isConfigured, state.conversationId, startNewConversation]
   );
 
   const loadConversationHistory = useCallback(

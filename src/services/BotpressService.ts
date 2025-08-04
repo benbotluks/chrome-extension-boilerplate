@@ -235,7 +235,7 @@ export class BotpressService {
             timestamp = new Date().toISOString();
           }
         } catch (_) {
-          console.warn(
+          console.error(
             "Invalid timestamp from Botpress message:",
             msg.createdAt
           );

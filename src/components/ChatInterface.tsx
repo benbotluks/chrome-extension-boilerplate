@@ -16,7 +16,7 @@ interface ChatInterfaceProps {
   conversationId: string | null;
   isConfigured: boolean;
   sendMessage: (content: string, pageContext?: PageContent | null) => Promise<void>;
-  startNewConversation: (pageContext?: PageContent | null) => Promise<void>;
+  startNewConversation: (pageContext?: PageContent | null) => Promise<string | null>;
   clearError: () => void;
 }
 
@@ -34,7 +34,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   clearError,
 }) => {
   const [showContentPreview, setShowContentPreview] = useState(false);
-  const contentScraping = useContentScraping();
+  
+  // Helper function to get current conversation ID (for the callback)
+  const getCurrentConversationId = () => conversationId;
+  
+  const contentScraping = useContentScraping(getCurrentConversationId);
 
   // Redirect to configuration if not configured
   useEffect(() => {
@@ -56,6 +60,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleNewConversation = async () => {
     clearError();
     await startNewConversation(pageContent || undefined);
+  };
+
+  const handleContentExtraction = async () => {
+    try {
+      clearError();
+      
+      // If no conversation exists, create one first
+      if (!conversationId) {
+        console.log('No active conversation, creating new conversation for content scraping...');
+        const newConversationId = await startNewConversation(pageContent || undefined);
+        
+        if (newConversationId) {
+          console.log('New conversation created:', newConversationId);
+          await contentScraping.extractContent(newConversationId);
+        } else {
+          console.error('Failed to create conversation for content scraping');
+        }
+      } else {
+        // Conversation exists, extract content directly
+        await contentScraping.extractContent(conversationId);
+      }
+    } catch (error) {
+      console.error('Error during content extraction:', error);
+    }
   };
 
   const formatUrl = (url: string) => {
@@ -125,7 +153,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           {/* Content scraping button */}
           {contentScraping.isConfigured && (
             <button
-              onClick={contentScraping.extractContent}
+              onClick={handleContentExtraction}
               className="flex items-center justify-center w-8 h-8 border-none rounded-md bg-transparent text-bootstrap-gray-600 cursor-pointer hover:bg-bootstrap-gray-200 hover:text-bootstrap-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed max-sm:w-7 max-sm:h-7"
               title="Extract page content"
               disabled={contentScraping.isExtracting || isLoading}

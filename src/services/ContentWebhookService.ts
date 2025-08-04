@@ -14,6 +14,7 @@ export interface WebhookPayload {
     userAgent: string;
     extensionVersion: string;
   };
+  conversationId: string | null;
 }
 
 export class ContentWebhookService {
@@ -53,7 +54,7 @@ export class ContentWebhookService {
   /**
    * Send page content to the configured webhook
    */
-  public async sendPageContent(pageContent: PageContent): Promise<void> {
+  public async sendPageContent(pageContent: PageContent, conversationId?: string): Promise<void> {
     if (!this.isEnabled() || !this.config) {
       console.log("Content webhook service is not enabled or configured");
       return;
@@ -66,7 +67,7 @@ export class ContentWebhookService {
         if (chrome?.runtime?.getManifest) {
           extensionVersion = chrome.runtime.getManifest().version;
         }
-      } catch (error) {
+      } catch (_) {
         console.warn('Could not get extension version, using fallback:', extensionVersion);
       }
 
@@ -78,6 +79,7 @@ export class ContentWebhookService {
           userAgent: navigator.userAgent,
           extensionVersion,
         },
+        conversationId: conversationId || null,
       };
 
       const headers: Record<string, string> = {
