@@ -4,13 +4,24 @@ import type {
   ChatMessage,
   ConversationSession,
   IncomingMessageEvent,
+  ServiceError,
+  ApiError,
+  NetworkError,
 } from "../types";
 import StorageService from "./StorageService";
 
 export interface BotpressServiceError {
   type: "authentication" | "network" | "api_limit" | "validation" | "unknown";
   message: string;
-  details?: any;
+  details?: ServiceError;
+}
+
+// Interface for the Botpress SignalListener
+interface SignalListener {
+  on(event: "message_created", callback: (data: IncomingMessageEvent) => void): void;
+  on(event: "error", callback: (error: Error) => void): void;
+  on(event: string, callback: (data: unknown) => void): void;
+  disconnect(): Promise<void>;
 }
 
 export class BotpressService {
@@ -18,7 +29,7 @@ export class BotpressService {
   private config: BotpressConfig | null = null;
   private userId: string | null = null;
   private storageService: StorageService;
-  private listener: any | null = null; // SignalListener from Botpress Chat API
+  private listener: SignalListener | null = null; // SignalListener from Botpress Chat API
 
   constructor(config?: BotpressConfig) {
     this.storageService = StorageService.getInstance();
@@ -121,7 +132,7 @@ export class BotpressService {
       const result = await this.client.listConversations({});
       console.log("Connection test successful:", result);
       return { success: true };
-    } catch (error: unknown) {
+    } catch (error: ServiceError) {
       console.error("Connection test failed:", error);
       return {
         success: false,
@@ -150,7 +161,7 @@ export class BotpressService {
       const response = await this.client.createConversation({});
 
       return { conversationId: response.conversation.id };
-    } catch (error: any) {
+    } catch (error: ServiceError) {
       return { error: this.handleError(error) };
     }
   }
@@ -179,7 +190,7 @@ export class BotpressService {
       });
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: ServiceError) {
       return {
         success: false,
         error: this.handleError(error),
@@ -223,7 +234,7 @@ export class BotpressService {
           } else {
             timestamp = new Date().toISOString();
           }
-        } catch (error) {
+        } catch (_) {
           console.warn(
             "Invalid timestamp from Botpress message:",
             msg.createdAt
@@ -243,7 +254,7 @@ export class BotpressService {
       });
 
       return { messages };
-    } catch (error: unknown) {
+    } catch (error: ServiceError) {
       return { error: this.handleError(error) };
     }
   }
@@ -286,7 +297,7 @@ export class BotpressService {
       );
 
       return { conversations };
-    } catch (error: unknown) {
+    } catch (error: ServiceError) {
       return { error: this.handleError(error) };
     }
   }
@@ -314,7 +325,7 @@ export class BotpressService {
       });
 
       return { success: true };
-    } catch (error: unknown) {
+    } catch (error: ServiceError) {
       return {
         success: false,
         error: this.handleError(error),
@@ -375,7 +386,7 @@ export class BotpressService {
       });
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: ServiceError) {
       return {
         success: false,
         error: this.handleError(error),
@@ -396,7 +407,7 @@ export class BotpressService {
         this.listener = null;
       }
       return { success: true };
-    } catch (error: unknown) {
+    } catch (error: ServiceError) {
       return {
         success: false,
         error: this.handleError(error),
@@ -407,12 +418,27 @@ export class BotpressService {
   /**
    * Handle and categorize errors from the Botpress API
    */
-  private handleError(error: unknown): BotpressServiceError {
-    // Ensure error is an object we can work with
-    const err = error as any;
+  private handleError(error: ServiceError): BotpressServiceError {
+    // Type guard functions to safely check error properties
+    const hasStatus = (err: unknown): err is ApiError =>
+      typeof err === 'object' && err !== null && 'status' in err;
+
+    const hasMessage = (err: unknown): err is { message: string } =>
+      typeof err === 'object' && err !== null && 'message' in err;
+
+    const hasCode = (err: unknown): err is NetworkError =>
+      typeof err === 'object' && err !== null && 'code' in err;
 
     // Network errors
-    if (err?.code === "NETWORK_ERROR" || err?.message?.includes("fetch")) {
+    if (hasCode(error) && error.code === "NETWORK_ERROR") {
+      return {
+        type: "network",
+        message: "Network error. Please check your internet connection.",
+        details: error,
+      };
+    }
+
+    if (hasMessage(error) && error.message.includes("fetch")) {
       return {
         type: "network",
         message: "Network error. Please check your internet connection.",
@@ -421,7 +447,7 @@ export class BotpressService {
     }
 
     // Authentication errors
-    if (err?.status === 401 || err?.status === 403) {
+    if (hasStatus(error) && (error.status === 401 || error.status === 403)) {
       return {
         type: "authentication",
         message: "Authentication failed. Please check your credentials.",
@@ -430,7 +456,7 @@ export class BotpressService {
     }
 
     // Rate limiting / API limits
-    if (err?.status === 429) {
+    if (hasStatus(error) && error.status === 429) {
       return {
         type: "api_limit",
         message: "API rate limit exceeded. Please try again later.",
@@ -439,18 +465,26 @@ export class BotpressService {
     }
 
     // Validation errors
-    if (err?.status === 400) {
+    if (hasStatus(error) && error.status === 400) {
+      const message = hasMessage(error) ? error.message : "Invalid request data.";
       return {
         type: "validation",
-        message: err?.message || "Invalid request data.",
+        message,
         details: error,
       };
     }
 
-    // Generic error
+    // Generic error - try to extract message safely
+    let message = "An unexpected error occurred.";
+    if (hasMessage(error)) {
+      message = error.message;
+    } else if (error instanceof Error) {
+      message = error.message;
+    }
+
     return {
       type: "unknown",
-      message: err?.message || "An unexpected error occurred.",
+      message,
       details: error,
     };
   }

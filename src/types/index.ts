@@ -121,3 +121,27 @@ export interface IncomingMessageEvent {
   payload: EventPayload,
   createdAt: string
 }
+
+// Error handling types
+export interface ApiError {
+  status?: number;
+  statusText?: string;
+  message?: string;
+  code?: string;
+  details?: unknown;
+}
+
+export interface NetworkError extends Error {
+  code?: string;
+  cause?: unknown;
+}
+
+export interface BotpressApiError {
+  status?: number;
+  message?: string;
+  error?: string;
+  details?: unknown;
+}
+
+// Union type for all possible error types we might encounter
+export type ServiceError = Error | ApiError | NetworkError | BotpressApiError | unknown;
