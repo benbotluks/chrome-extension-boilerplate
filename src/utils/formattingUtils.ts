@@ -1,4 +1,4 @@
-export const formatTimestamp = (timestamp: Date) => {
+export const formatTimestamp = (timestamp: Date | string) => {
   try {
     // Ensure timestamp is a valid Date object
     const date = timestamp instanceof Date ? timestamp : new Date(timestamp);

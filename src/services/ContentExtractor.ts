@@ -1,4 +1,4 @@
-import type { PageContent, PageMetadata } from '../types'
+import type { DomElement, PageContent, PageMetadata } from '../types'
 
 export interface ContentExtractionResult {
   success: boolean;
@@ -75,7 +75,7 @@ function extractContentFromPage(): ContentExtractionResult {
 
       // Extract text content
       let textContent =
-        contentClone.textContent || (contentClone as any).innerText || "";
+        contentClone.textContent || (contentClone as DomElement).innerText || "";
 
       // Clean up whitespace
       textContent = textContent
@@ -87,7 +87,7 @@ function extractContentFromPage(): ContentExtractionResult {
     };
 
     const extractMetadata = () => {
-      const metadata: any = {};
+      const metadata: PageMetadata = {};
 
       // Basic page info
       metadata.title = document.title || "";
@@ -234,9 +234,9 @@ function extractContentFromPage(): ContentExtractionResult {
         : textContent;
 
     const pageContent: PageContent = {
-      url: metadata.url,
-      title: metadata.title,
-      domain: metadata.domain,
+      url: metadata.url || "",
+      title: metadata.title || "",
+      domain: metadata.domain || "",
       contentType: contentType,
       extractedText: truncatedContent,
       metadata: metadata,

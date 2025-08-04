@@ -3,6 +3,7 @@ import type {
   BotpressConfig,
   ChatMessage,
   ConversationSession,
+  IncomingMessageEvent,
 } from "../types";
 import StorageService from "./StorageService";
 
@@ -120,7 +121,7 @@ export class BotpressService {
       const result = await this.client.listConversations({});
       console.log("Connection test successful:", result);
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Connection test failed:", error);
       return {
         success: false,
@@ -209,19 +210,25 @@ export class BotpressService {
 
       const messages: ChatMessage[] = response.messages.reverse().map((msg) => {
         // Safely create timestamp with fallback
-        let timestamp: Date;
+        let timestamp: string;
         try {
-          timestamp = msg.createdAt ? new Date(msg.createdAt) : new Date();
-          // Check if the date is valid
-          if (isNaN(timestamp.getTime())) {
-            timestamp = new Date();
+          if (msg.createdAt) {
+            // Validate the timestamp by creating a Date object
+            const date = new Date(msg.createdAt);
+            if (isNaN(date.getTime())) {
+              timestamp = new Date().toISOString();
+            } else {
+              timestamp = typeof msg.createdAt === 'string' ? msg.createdAt : new Date(msg.createdAt).toISOString();
+            }
+          } else {
+            timestamp = new Date().toISOString();
           }
         } catch (error) {
           console.warn(
             "Invalid timestamp from Botpress message:",
             msg.createdAt
           );
-          timestamp = new Date();
+          timestamp = new Date().toISOString();
         }
 
         return {
@@ -236,7 +243,7 @@ export class BotpressService {
       });
 
       return { messages };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { error: this.handleError(error) };
     }
   }
@@ -279,7 +286,7 @@ export class BotpressService {
       );
 
       return { conversations };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return { error: this.handleError(error) };
     }
   }
@@ -307,7 +314,7 @@ export class BotpressService {
       });
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
         error: this.handleError(error),
@@ -342,7 +349,7 @@ export class BotpressService {
       });
 
       // Handle message_created events
-      this.listener.on("message_created", (event: any) => {
+      this.listener.on("message_created", (event: IncomingMessageEvent) => {
         try {
           // Convert the event to ChatMessage format
           const message: ChatMessage = {
@@ -352,7 +359,7 @@ export class BotpressService {
               event.payload.type === "text"
                 ? event.payload.text
                 : "[Non-text message]",
-            timestamp: new Date(event.createdAt),
+            timestamp: event.createdAt || new Date().toISOString(),
           };
 
           // Call the callback with the converted message
@@ -363,7 +370,7 @@ export class BotpressService {
       });
 
       // Handle connection errors
-      this.listener.on("error", (error: any) => {
+      this.listener.on("error", (error: Error) => {
         console.error("SSE connection error:", error);
       });
 
@@ -389,7 +396,7 @@ export class BotpressService {
         this.listener = null;
       }
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
         success: false,
         error: this.handleError(error),
@@ -400,9 +407,12 @@ export class BotpressService {
   /**
    * Handle and categorize errors from the Botpress API
    */
-  private handleError(error: any): BotpressServiceError {
+  private handleError(error: unknown): BotpressServiceError {
+    // Ensure error is an object we can work with
+    const err = error as any;
+
     // Network errors
-    if (error.code === "NETWORK_ERROR" || error.message?.includes("fetch")) {
+    if (err?.code === "NETWORK_ERROR" || err?.message?.includes("fetch")) {
       return {
         type: "network",
         message: "Network error. Please check your internet connection.",
@@ -411,7 +421,7 @@ export class BotpressService {
     }
 
     // Authentication errors
-    if (error.status === 401 || error.status === 403) {
+    if (err?.status === 401 || err?.status === 403) {
       return {
         type: "authentication",
         message: "Authentication failed. Please check your credentials.",
@@ -420,7 +430,7 @@ export class BotpressService {
     }
 
     // Rate limiting / API limits
-    if (error.status === 429) {
+    if (err?.status === 429) {
       return {
         type: "api_limit",
         message: "API rate limit exceeded. Please try again later.",
@@ -429,10 +439,10 @@ export class BotpressService {
     }
 
     // Validation errors
-    if (error.status === 400) {
+    if (err?.status === 400) {
       return {
         type: "validation",
-        message: error.message || "Invalid request data.",
+        message: err?.message || "Invalid request data.",
         details: error,
       };
     }
@@ -440,7 +450,7 @@ export class BotpressService {
     // Generic error
     return {
       type: "unknown",
-      message: error.message || "An unexpected error occurred.",
+      message: err?.message || "An unexpected error occurred.",
       details: error,
     };
   }

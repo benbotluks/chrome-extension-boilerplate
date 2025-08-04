@@ -26,15 +26,32 @@ export interface BotpressUserSession {
   lastUsed: Date;
 }
 
+
+export interface Heading {
+  level?: number,
+  text: string
+}
+
+export interface Link {
+  url: string,
+  text: string
+}
+
+export interface DomElement {
+  innerText?: string
+}
+
 export interface PageMetadata {
   title?: string
   author?: string;
+  url?: string;
+  domain?: string;
   publishDate?: string;
   description?: string;
   keywords?: string[];
   images?: string[];
-  headings?: string[];
-  links?: string[];
+  headings?: Heading[];
+  links?: Link[];
 }
 
 export interface PageContent {
@@ -57,8 +74,8 @@ export interface ContentExtractionResult {
 export interface ChatMessage {
   id: string;
   type: "user" | "bot" | "system";
-  content: string;
-  timestamp: Date;
+  content: string | undefined;
+  timestamp: string;
   pageContext?: {
     url: string;
     title: string;
@@ -90,4 +107,17 @@ export interface EncryptedData {
   data: string;
   iv: string;
   salt: string;
+}
+
+
+export interface EventPayload {
+  type: string | undefined,
+  text?: string | undefined,
+}
+
+export interface IncomingMessageEvent {
+  id: string,
+  isBot: boolean,
+  payload: EventPayload,
+  createdAt: string
 }

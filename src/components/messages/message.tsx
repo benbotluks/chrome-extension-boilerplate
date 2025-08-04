@@ -10,7 +10,6 @@ interface MessageProps {
 export const Message: React.FC<MessageProps> = ({ message, url }) => {
 
     const { id, type, timestamp, content } = message
-
     return <div
         key={id}
         className={`flex mb-2 ${type === 'user' ? 'justify-end' : 'justify-start'}`}
