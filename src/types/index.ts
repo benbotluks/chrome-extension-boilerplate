@@ -61,7 +61,7 @@ export interface PageContent {
   contentType: ContentType;
   extractedText: string;
   metadata: PageMetadata;
-  extractedAt: Date;
+  extractedAt: string;
 }
 
 export interface ContentExtractionResult {

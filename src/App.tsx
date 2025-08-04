@@ -16,7 +16,7 @@ const mockPageContent: PageContent = {
     description: 'Demo page for testing the chat interface',
     keywords: ['demo', 'chat', 'botpress'],
   },
-  extractedAt: new Date(),
+  extractedAt: new Date().toISOString(),
 };
 
 type AppView = 'loading' | 'configuration' | 'chat';

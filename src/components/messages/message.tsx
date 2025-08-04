@@ -14,7 +14,7 @@ export const Message: React.FC<MessageProps> = ({ message, url }) => {
         key={id}
         className={`flex mb-2 ${type === 'user' ? 'justify-end' : 'justify-start'}`}
     >
-        <div className="max-w-[80%] min-w-[120px]">
+        <div className="max-w-[80%] min-w-[60px]">
             <div className={`px-4 py-3 rounded-2xl text-sm leading-snug break-words ${type === 'user'
                 ? 'bg-bootstrap-primary text-white rounded-br-sm'
                 : 'bg-bootstrap-gray-200 text-gray-800 rounded-bl-sm'

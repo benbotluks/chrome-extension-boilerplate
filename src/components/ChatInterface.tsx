@@ -4,6 +4,7 @@ import MessageInput from './MessageInput';
 import SuggestedQuestions from './SuggestedQuestions';
 import { useContentScraping } from '../hooks/useContentScraping';
 import type { PageContent, ChatMessage } from '../types';
+import { formatTimestamp } from '../utils/formattingUtils';
 
 interface ChatInterfaceProps {
   pageContent?: PageContent;
@@ -222,7 +223,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           <div className="flex items-center justify-between">
             <span>✓ Content extracted and sent to webhook</span>
             <span className="text-xs opacity-75">
-              {new Date(contentScraping.lastExtractedContent.extractedAt).toLocaleTimeString()}
+              {formatTimestamp(new Date(contentScraping.lastExtractedContent.extractedAt))}
             </span>
           </div>
         </div>

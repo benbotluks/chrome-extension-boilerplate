@@ -240,7 +240,7 @@ function extractContentFromPage(): ContentExtractionResult {
       contentType: contentType,
       extractedText: truncatedContent,
       metadata: metadata,
-      extractedAt: new Date(),
+      extractedAt: new Date().toISOString(),
     };
 
     return {
