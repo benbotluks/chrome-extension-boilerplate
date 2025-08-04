@@ -259,9 +259,6 @@ export class BotpressService {
     }
   }
 
-  /**
-   * List all conversations for the bot
-   */
   async listConversations(): Promise<{
     conversations?: ConversationSession[];
     error?: BotpressServiceError;
@@ -302,9 +299,6 @@ export class BotpressService {
     }
   }
 
-  /**
-   * Delete a conversation
-   */
   async deleteConversation(conversationId: string): Promise<{
     success: boolean;
     error?: BotpressServiceError;
@@ -333,9 +327,6 @@ export class BotpressService {
     }
   }
 
-  /**
-   * Start listening for SSE events on a conversation
-   */
   async startListening(
     conversationId: string,
     onMessage: (message: ChatMessage) => void
@@ -394,9 +385,6 @@ export class BotpressService {
     }
   }
 
-  /**
-   * Stop listening for SSE events
-   */
   async stopListening(): Promise<{
     success: boolean;
     error?: BotpressServiceError;
@@ -415,9 +403,6 @@ export class BotpressService {
     }
   }
 
-  /**
-   * Handle and categorize errors from the Botpress API
-   */
   private handleError(error: ServiceError): BotpressServiceError {
     // Type guard functions to safely check error properties
     const hasStatus = (err: unknown): err is ApiError =>
@@ -455,7 +440,6 @@ export class BotpressService {
       };
     }
 
-    // Rate limiting / API limits
     if (hasStatus(error) && error.status === 429) {
       return {
         type: "api_limit",
@@ -464,7 +448,6 @@ export class BotpressService {
       };
     }
 
-    // Validation errors
     if (hasStatus(error) && error.status === 400) {
       const message = hasMessage(error) ? error.message : "Invalid request data.";
       return {
@@ -474,7 +457,6 @@ export class BotpressService {
       };
     }
 
-    // Generic error - try to extract message safely
     let message = "An unexpected error occurred.";
     if (hasMessage(error)) {
       message = error.message;
