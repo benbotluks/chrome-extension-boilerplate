@@ -155,7 +155,7 @@ function extractContentFromPage(): ContentExtractionResult {
               url: new URL(href, window.location.href).href,
               text: text,
             });
-          } catch (e) {
+          } catch {
             // Skip invalid URLs
           }
         }
@@ -226,6 +226,10 @@ function extractContentFromPage(): ContentExtractionResult {
     const metadata = extractMetadata();
     const contentType = detectContentType(metadata);
 
+    // Debug logging
+    console.log('[extractContentFromPage] Current URL:', window.location.href);
+    console.log('[extractContentFromPage] Extracted metadata URL:', metadata.url);
+
     // Limit content size (approximate 5000 characters)
     const maxLength = 5000;
     const truncatedContent =
@@ -275,9 +279,12 @@ export class ContentExtractor {
     try {
       // Check if we're in a Chrome extension environment
       if (!chrome?.tabs) {
-        // Development mode fallback - extract from current page
-        console.warn('Chrome extension APIs not available, extracting from current page (development mode)');
-        return this.extractFromCurrentPage();
+        // Development mode fallback - cannot extract from actual webpage
+        console.warn('Chrome extension APIs not available, content extraction not possible in development mode');
+        return {
+          success: false,
+          error: 'Content extraction requires Chrome extension APIs. Please build and load the extension to test this feature.'
+        };
       }
 
       // Get the current active tab
@@ -304,7 +311,8 @@ export class ContentExtractor {
         target: { tabId: activeTab.id },
         func: extractContentFromPage, // Use standalone function instead of class method
       });
-      console.log('[ContentExtractor]: ', results)
+      console.log('[ContentExtractor] Script execution results:', results);
+      console.log('[ContentExtractor] Active tab URL:', activeTab.url);
       if (!results || results.length === 0) {
         throw new Error("Failed to execute content extraction script");
       }
@@ -326,21 +334,7 @@ export class ContentExtractor {
     }
   }
 
-  /**
-   * Fallback method to extract content from current page (development mode)
-   */
-  private extractFromCurrentPage(): ContentExtractionResult {
-    try {
-      // Use the same extraction logic but run it directly on current page
-      const result = extractContentFromPage();
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Development mode extraction failed'
-      };
-    }
-  }
+
 
 
 
@@ -349,12 +343,8 @@ export class ContentExtractor {
    */
   public async isAvailable(): Promise<boolean> {
     try {
-      // In Chrome extension environment
-      if (chrome?.tabs && chrome?.scripting) {
-        return true;
-      }
-      // In development mode, we can still extract from current page
-      return typeof document !== 'undefined';
+      // Content extraction requires Chrome extension APIs
+      return !!(chrome?.tabs && chrome?.scripting);
     } catch {
       return false;
     }

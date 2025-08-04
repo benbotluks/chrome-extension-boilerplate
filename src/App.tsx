@@ -2,28 +2,15 @@ import { useState, useEffect } from 'react';
 import ChatInterface from './components/ChatInterface';
 import ConfigurationPanel from './components/ConfigurationPanel';
 import { useBotpressChat } from './hooks/useBotpressChat';
+import { ContentExtractor } from './services/ContentExtractor';
 import type { PageContent, BotpressConfig } from './types';
-
-// Mock page content for demo purposes
-// In a real Chrome extension, this would come from content extraction
-const mockPageContent: PageContent = {
-  url: window.location.href,
-  title: document.title || 'Demo Page',
-  domain: window.location.hostname,
-  contentType: 'generic',
-  extractedText: 'This is a demo of the Website Content Chat extension. In a real Chrome extension, this would contain the actual page content extracted from the current tab.',
-  metadata: {
-    description: 'Demo page for testing the chat interface',
-    keywords: ['demo', 'chat', 'botpress'],
-  },
-  extractedAt: new Date().toISOString(),
-};
 
 type AppView = 'loading' | 'configuration' | 'chat';
 
 function App() {
   const [currentView, setCurrentView] = useState<AppView>('loading');
-  const [pageContent] = useState<PageContent>(mockPageContent);
+  const [pageContent, setPageContent] = useState<PageContent | null>(null);
+  const [contentExtractionError, setContentExtractionError] = useState<string | null>(null);
 
   const {
     isConfigured,
@@ -36,33 +23,58 @@ function App() {
     startNewConversation,
     clearError,
     isTyping
-  } = useBotpressChat(pageContent);
+  } = useBotpressChat(pageContent || undefined);
 
-  // Initialize the app
+  // Initialize the app and extract page content
   useEffect(() => {
-    // Handle initial loading
-    if (currentView === 'loading') {
-      const initializeApp = async () => {
-        // await new Promise(resolve => setTimeout(resolve, 500));
-
-        if (isConfigured) {
-          setCurrentView('chat');
+    const initializeApp = async () => {
+      try {
+        // Try to extract page content first
+        const contentExtractor = ContentExtractor.getInstance();
+        const isAvailable = await contentExtractor.isAvailable();
+        
+        if (isAvailable) {
+          const result = await contentExtractor.extractCurrentPageContent();
+          if (result.success && result.content) {
+            setPageContent(result.content);
+            console.log('Page content extracted successfully:', result.content);
+          } else {
+            setContentExtractionError(result.error || 'Failed to extract page content');
+            console.warn('Content extraction failed:', result.error);
+          }
         } else {
-          setCurrentView('configuration');
+          setContentExtractionError('Content extraction not available. Please build and load the extension to use this feature.');
+          console.warn('Content extraction not available in current environment');
         }
-      };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error during content extraction';
+        setContentExtractionError(errorMessage);
+        console.error('Error during content extraction:', error);
+      }
 
+      // Determine which view to show
+      if (isConfigured) {
+        setCurrentView('chat');
+      } else {
+        setCurrentView('configuration');
+      }
+    };
+
+    if (currentView === 'loading') {
       initializeApp();
-      return;
     }
+  }, [currentView, isConfigured]);
 
-    // Handle configuration state changes (no delay needed)
-    if (isConfigured && currentView !== 'chat') {
-      setCurrentView('chat');
-    } else if (!isConfigured && currentView !== 'configuration') {
-      setCurrentView('configuration');
+  // Handle configuration state changes
+  useEffect(() => {
+    if (currentView !== 'loading') {
+      if (isConfigured && currentView !== 'chat') {
+        setCurrentView('chat');
+      } else if (!isConfigured && currentView !== 'configuration') {
+        setCurrentView('configuration');
+      }
     }
-  }, [isConfigured]);
+  }, [isConfigured, currentView]);
 
 
   const handleConfigurationComplete = async (config: BotpressConfig): Promise<boolean> => {
@@ -86,9 +98,22 @@ function App() {
     }
   };
 
-  // const handleReconfigure = () => {
-  //   setCurrentView('configuration');
-  // };
+  const handleRetryContentExtraction = async () => {
+    setContentExtractionError(null);
+    try {
+      const contentExtractor = ContentExtractor.getInstance();
+      const result = await contentExtractor.extractCurrentPageContent();
+      if (result.success && result.content) {
+        setPageContent(result.content);
+        console.log('Page content extracted successfully on retry:', result.content);
+      } else {
+        setContentExtractionError(result.error || 'Failed to extract page content');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during content extraction';
+      setContentExtractionError(errorMessage);
+    }
+  };
 
   if (currentView === 'loading') {
     return (
@@ -96,6 +121,7 @@ function App() {
         <div className="h-full flex flex-col items-center justify-center gap-4 text-bootstrap-gray-700">
           <div className="w-8 h-8 border-3 border-bootstrap-gray-200 border-t-bootstrap-primary rounded-full animate-spin" />
           <p className="m-0 text-sm font-medium">Loading Website Content Chat...</p>
+          <p className="m-0 text-xs text-bootstrap-gray-500">Extracting page content...</p>
         </div>
       </div>
     );
@@ -111,19 +137,39 @@ function App() {
           onCancel={isConfigured ? handleBackToChat : undefined}
         />
       ) : (
-        <ChatInterface
-          pageContent={pageContent}
-          onConfigurationNeeded={handleConfigurationNeeded}
-          messages={messages}
-          isLoading={isLoading}
-          isTyping={isTyping}
-          error={error}
-          conversationId={conversationId}
-          isConfigured={isConfigured}
-          sendMessage={sendMessage}
-          startNewConversation={startNewConversation}
-          clearError={clearError}
-        />
+        <>
+          {/* Content extraction error banner */}
+          {contentExtractionError && (
+            <div className="bg-warning-bg text-warning-text px-4 py-3 border-b border-warning-border text-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="font-semibold mb-1">Content Extraction Issue</div>
+                  <div className="text-xs opacity-90">{contentExtractionError}</div>
+                </div>
+                <button
+                  onClick={handleRetryContentExtraction}
+                  className="ml-3 px-3 py-1 bg-warning-text text-warning-bg rounded text-xs font-medium hover:opacity-90 transition-opacity"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+          
+          <ChatInterface
+            pageContent={pageContent}
+            onConfigurationNeeded={handleConfigurationNeeded}
+            messages={messages}
+            isLoading={isLoading}
+            isTyping={isTyping}
+            error={error}
+            conversationId={conversationId}
+            isConfigured={isConfigured}
+            sendMessage={sendMessage}
+            startNewConversation={startNewConversation}
+            clearError={clearError}
+          />
+        </>
       )}
     </div>
   );

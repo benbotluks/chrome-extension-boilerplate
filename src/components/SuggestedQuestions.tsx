@@ -2,7 +2,7 @@ import React from 'react';
 import type { ContentType, PageContent } from '../types';
 
 interface SuggestedQuestionsProps {
-  pageContent?: PageContent;
+  pageContent?: PageContent | null;
   onQuestionClick: (question: string) => void;
   disabled?: boolean;
 }

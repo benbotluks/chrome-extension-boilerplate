@@ -22,7 +22,7 @@ Make sure you have [Node.js](https://nodejs.org/) (version 18+ or 20+) installed
 2. Install the dependencies:
 
     ```sh
-    npm install
+    pnpm install
     ```
 
 ## 🏗️ Development
@@ -30,7 +30,7 @@ Make sure you have [Node.js](https://nodejs.org/) (version 18+ or 20+) installed
 To start the development server:
 
 ```sh
-npm run dev
+pnpm dev
 ```
 
 This will start the Vite development server and open your default browser.
@@ -40,7 +40,7 @@ This will start the Vite development server and open your default browser.
 To create a production build:
 
 ```sh
-npm run build
+pnpm build
 ```
 
 This will generate the build files in the `build` directory.
@@ -52,6 +52,28 @@ This will generate the build files in the `build` directory.
 3. Click "Load unpacked" and select the `build` directory.
 
 Your React app should now be loaded as a Chrome extension!
+
+## 🔧 Troubleshooting
+
+### Content Extraction Issues
+
+If you're seeing the extension's internal URL (like `dmjbbhpfbckkihpmmfdgkhfhdokjeegl/index.html`) instead of the actual webpage URL:
+
+1. **Make sure the extension is properly built and loaded**: Content extraction only works when the extension is built (`pnpm build`) and loaded as an unpacked extension in Chrome. It will not work in development mode (`pnpm dev`).
+
+2. **Check browser console**: Open the browser's developer tools (F12) and check the console for any error messages related to content extraction.
+
+3. **Verify permissions**: Ensure the extension has the necessary permissions in `manifest.json`:
+   - `"activeTab"` - to access the current tab
+   - `"scripting"` - to inject content scripts
+   - `"host_permissions": ["http://*/*", "https://*/*"]` - to access web pages
+
+4. **Test on a regular webpage**: Content extraction won't work on browser internal pages (like `chrome://` URLs). Test on a regular website like `https://example.com`.
+
+### Development vs Production
+
+- **Development mode** (`pnpm dev`): Content extraction is disabled and will show an appropriate error message
+- **Production mode** (built extension): Full content extraction functionality is available
 
 ## 🗂️ Project Structure
 

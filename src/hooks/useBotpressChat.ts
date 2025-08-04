@@ -29,8 +29,8 @@ interface UseBotpressChatReturn {
   isTyping: boolean;
 
   // Actions
-  sendMessage: (content: string, pageContext?: PageContent) => Promise<void>;
-  startNewConversation: (pageContext?: PageContent) => Promise<void>;
+  sendMessage: (content: string, pageContext?: PageContent | null) => Promise<void>;
+  startNewConversation: (pageContext?: PageContent | null) => Promise<void>;
   loadConversationHistory: (conversationId: string) => Promise<void>;
   clearError: () => void;
   configure: (config: BotpressConfig) => Promise<boolean>;
@@ -39,7 +39,7 @@ interface UseBotpressChatReturn {
 let storageService: StorageService;
 
 export const useBotpressChat = (
-  initialPageContext?: PageContent
+  initialPageContext?: PageContent | null
 ): UseBotpressChatReturn => {
   const [state, setState] = useState<ChatState>({
     messages: [],
@@ -255,7 +255,7 @@ export const useBotpressChat = (
   );
 
   const startNewConversation = useCallback(
-    async (pageContext?: PageContent) => {
+    async (pageContext?: PageContent | null) => {
       if (!state.isConfigured) {
         setState((prev) => ({ ...prev, error: "Botpress not configured" }));
         return;
@@ -313,7 +313,7 @@ export const useBotpressChat = (
   );
 
   const sendMessage = useCallback(
-    async (content: string, pageContext?: PageContent) => {
+    async (content: string, pageContext?: PageContent | null) => {
       if (!state.isConfigured) {
         setState((prev) => ({ ...prev, error: "Botpress not configured" }));
         return;

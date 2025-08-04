@@ -7,7 +7,7 @@ import type { PageContent, ChatMessage } from '../types';
 import { formatTimestamp } from '../utils/formattingUtils';
 
 interface ChatInterfaceProps {
-  pageContent?: PageContent;
+  pageContent?: PageContent | null;
   onConfigurationNeeded?: () => void;
   messages: ChatMessage[];
   isLoading: boolean;
@@ -15,8 +15,8 @@ interface ChatInterfaceProps {
   error: string | null;
   conversationId: string | null;
   isConfigured: boolean;
-  sendMessage: (content: string, pageContext?: PageContent) => Promise<void>;
-  startNewConversation: (pageContext?: PageContent) => Promise<void>;
+  sendMessage: (content: string, pageContext?: PageContent | null) => Promise<void>;
+  startNewConversation: (pageContext?: PageContent | null) => Promise<void>;
   clearError: () => void;
 }
 
@@ -45,17 +45,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const handleSendMessage = async (content: string) => {
     clearError();
-    await sendMessage(content, pageContent);
+    await sendMessage(content, pageContent || undefined);
   };
 
   const handleQuestionClick = async (question: string) => {
     clearError();
-    await sendMessage(question, pageContent);
+    await sendMessage(question, pageContent || undefined);
   };
 
   const handleNewConversation = async () => {
     clearError();
-    await startNewConversation(pageContent);
+    await startNewConversation(pageContent || undefined);
   };
 
   const formatUrl = (url: string) => {
@@ -107,7 +107,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <div className="text-sm font-semibold text-bootstrap-gray-900 whitespace-nowrap overflow-hidden text-ellipsis max-sm:text-xs">Chat</div>
           )}
         </div>
-        
+
         <div className="flex items-center gap-2 ml-3 max-sm:gap-1.5 max-sm:ml-2">
           {pageContent && (
             <button
@@ -141,7 +141,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               )}
             </button>
           )}
-          
+
           {conversationId && (
             <button
               onClick={handleNewConversation}
@@ -232,22 +232,22 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {/* Main chat area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <MessageList messages={messages} isLoading={isLoading} isTyping={isTyping} />
-        
+
         {/* Show suggested questions when no messages */}
         {messages.length === 0 && !isLoading && (
           <SuggestedQuestions
-            pageContent={pageContent}
+            pageContent={pageContent || undefined}
             onQuestionClick={handleQuestionClick}
             disabled={isLoading}
           />
         )}
-        
+
         <MessageInput
           onSendMessage={handleSendMessage}
           isLoading={isLoading}
           disabled={!isConfigured}
           placeholder={
-            pageContent 
+            pageContent
               ? `Ask about "${truncateText(pageContent.title, 30)}"...`
               : "Ask a question..."
           }
