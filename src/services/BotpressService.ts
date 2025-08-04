@@ -106,12 +106,8 @@ export class BotpressService {
 
     return ServiceErrorWrapper.execute(async () => {
       if (!this.client || !this.config) {
-        console.log("Service not configured");
         throw new Error("Service not configured. Please provide valid credentials.");
       }
-
-      console.log("Attempting to list conversations...");
-      // Test connection by attempting to get bot info
       const result = await this.client.listConversations({});
       console.log("Connection test successful:", result);
       return true;
@@ -193,7 +189,7 @@ export class BotpressService {
           id: msg.id,
           type: msg.userId === this.userId ? "user" : "bot",
           content:
-            msg.payload.type === "text"
+            ["text", "choice"].includes(msg.payload.type)
               ? msg.payload.text
               : "[Non-text message]",
           timestamp,
@@ -276,7 +272,7 @@ export class BotpressService {
             id: event.id,
             type: event.isBot ? "bot" : "user",
             content:
-              event.payload.type === "text"
+              ["text", "choice"].includes(event.payload.type as string)
                 ? event.payload.text
                 : "[Non-text message]",
             timestamp: event.createdAt || new Date().toISOString(),

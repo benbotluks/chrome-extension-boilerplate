@@ -209,62 +209,47 @@ export class StorageService {
       .join("");
   }
 
-  /**
-   * Save Botpress configuration with encryption
-   */
   async saveBotpressConfig(config: BotpressConfig): Promise<void> {
-    try {
+    return withErrorHandling("save Botpress config", async () => {
       const configToStore = {
         ...config,
       };
-
       await this.setToStorage(this.STORAGE_KEYS.BOTPRESS_CONFIG, configToStore);
-    } catch (error) {
-      throw new Error(`Failed to save Botpress config: ${error}`);
-    }
+    })
+
   }
 
   /**
    * Load Botpress configuration with decryption
    */
   async loadBotpressConfig(): Promise<BotpressConfig | null> {
-    try {
+    return withErrorHandling("load Botpress config", async () => {
       const storedConfig = await this.getFromStorage(
         this.STORAGE_KEYS.BOTPRESS_CONFIG
       );
-      if (!storedConfig) {
-        return null;
-      }
-
-      return {
-        ...storedConfig,
-      };
-    } catch (error) {
-      throw new Error(`Failed to load Botpress config: ${error}`);
-    }
+      if (!storedConfig) return null;
+      return { ...storedConfig, };
+    })
   }
 
   /**
    * Clear Botpress configuration
    */
   async clearBotpressConfig(): Promise<void> {
-    try {
+    return withErrorHandling("clear Botpress config", async () => {
       if (this.isExtensionContext) {
         await chrome.storage.sync.remove([this.STORAGE_KEYS.BOTPRESS_CONFIG]);
       } else {
         localStorage.removeItem(this.STORAGE_KEYS.BOTPRESS_CONFIG);
       }
-    } catch (error) {
-      throw new Error(`Failed to clear Botpress config: ${error}`);
-    }
+    })
   }
 
   /**
    * Save user key securely to sync storage with encryption
    */
   async saveUserKey(userKey: string): Promise<void> {
-    try {
-      // Encrypt the user key before storing
+    return withErrorHandling("save user key", async () => {
       const encryptedUserKey = await this.encryptData(userKey);
 
       const userSession: BotpressUserSession = {
@@ -274,46 +259,28 @@ export class StorageService {
       };
 
       await this.setToStorage(this.STORAGE_KEYS.USER_SESSION, userSession);
-    } catch (error) {
-      throw new Error(`Failed to save user key: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Load stored user key from sync storage with decryption
-   */
   async loadUserKey(): Promise<string | null> {
-    try {
-      const userSession = await this.getFromStorage(
-        this.STORAGE_KEYS.USER_SESSION
-      );
+    return withErrorHandling("load user key", async () => {
+      const userSession = await this.getFromStorage(this.STORAGE_KEYS.USER_SESSION);
 
-      if (!userSession || !userSession.userKey) {
-        return null;
-      }
+      if (!userSession || !userSession.userKey) return null;
 
-      // Decrypt the user key
       let decryptedUserKey: string;
       try {
-        // Handle both encrypted (new) and plain text (legacy) user keys
         if (typeof userSession.userKey === "string") {
-          // Legacy plain text key - return as is but should be re-encrypted on next save
           decryptedUserKey = userSession.userKey;
         } else {
-          // New encrypted key
           decryptedUserKey = await this.decryptData(userSession.userKey);
         }
       } catch (decryptError) {
-        console.warn(
-          "Failed to decrypt user key, treating as invalid:",
-          decryptError
-        );
+        console.warn("Failed to decrypt user key, treating as invalid:", decryptError);
         return null;
       }
 
-      // Update last used timestamp and re-encrypt if it was plain text
       if (typeof userSession.userKey === "string") {
-        // Re-encrypt legacy plain text key
         const encryptedUserKey = await this.encryptData(decryptedUserKey);
         userSession.userKey = encryptedUserKey;
       }
@@ -322,157 +289,94 @@ export class StorageService {
       await this.setToStorage(this.STORAGE_KEYS.USER_SESSION, userSession);
 
       return decryptedUserKey;
-    } catch (error) {
-      throw new Error(`Failed to load user key: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Clear stored user key for cleanup/reset scenarios
-   */
   async clearUserKey(): Promise<void> {
-    try {
+    return withErrorHandling("clear user key", async () => {
       if (this.isExtensionContext) {
         await chrome.storage.sync.remove([this.STORAGE_KEYS.USER_SESSION]);
       } else {
-        // Fallback to localStorage for development/testing
         localStorage.removeItem(this.STORAGE_KEYS.USER_SESSION);
       }
-    } catch (error) {
-      throw new Error(`Failed to clear user key: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Save conversation session to local storage (associated with current user key)
-   */
   async saveConversation(conversation: ConversationSession): Promise<void> {
-    try {
+    return withErrorHandling("save conversation", async () => {
       const userKey = await this.loadUserKey();
-      if (!userKey) {
-        throw new Error("No user key found - cannot save conversation");
-      }
+      if (!userKey) throw new Error("No user key found - cannot save conversation");
 
       const conversations = await this.loadAllConversations();
       conversations[conversation.id] = conversation;
 
-      // Use hashed user key for storage namespacing (security)
       const hashedUserKey = await this.hashUserKey(userKey);
       const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${hashedUserKey}`;
       await this.setToLocalStorage(userSpecificKey, conversations);
-    } catch (error) {
-      throw new Error(`Failed to save conversation: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Load a specific conversation by ID (for current user)
-   */
-  async loadConversation(
-    conversationId: string
-  ): Promise<ConversationSession | null> {
-    try {
+  async loadConversation(conversationId: string): Promise<ConversationSession | null> {
+    return withErrorHandling("load conversation", async () => {
       const conversations = await this.loadAllConversations();
       return conversations[conversationId] || null;
-    } catch (error) {
-      throw new Error(`Failed to load conversation: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Load all conversations for the current user
-   */
   async loadAllConversations(): Promise<Record<string, ConversationSession>> {
-    try {
+    return withErrorHandling("load conversations", async () => {
       const userKey = await this.loadUserKey();
-      if (!userKey) {
-        return {}; // No user key means no conversations
-      }
+      if (!userKey) return {};
 
-      // Use hashed user key for storage namespacing (security)
       const hashedUserKey = await this.hashUserKey(userKey);
       const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${hashedUserKey}`;
       const conversations = await this.getFromLocalStorage(userSpecificKey);
       return conversations || {};
-    } catch (error) {
-      throw new Error(`Failed to load conversations: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Delete a specific conversation (for current user)
-   */
   async deleteConversation(conversationId: string): Promise<void> {
-    try {
+    return withErrorHandling("delete conversation", async () => {
       const userKey = await this.loadUserKey();
-      if (!userKey) {
-        throw new Error("No user key found - cannot delete conversation");
-      }
+      if (!userKey) throw new Error("No user key found - cannot delete conversation");
 
       const conversations = await this.loadAllConversations();
       delete conversations[conversationId];
 
-      // Use hashed user key for storage namespacing (security)
       const hashedUserKey = await this.hashUserKey(userKey);
       const userSpecificKey = `${this.STORAGE_KEYS.CONVERSATIONS}_${hashedUserKey}`;
       await this.setToLocalStorage(userSpecificKey, conversations);
-    } catch (error) {
-      throw new Error(`Failed to delete conversation: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Get conversations for a specific URL
-   */
   async getConversationsByUrl(url: string): Promise<ConversationSession[]> {
-    try {
+    return withErrorHandling("get conversations by URL", async () => {
       const conversations = await this.loadAllConversations();
       return Object.values(conversations).filter((conv) => conv.url === url);
-    } catch (error) {
-      throw new Error(`Failed to get conversations by URL: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Set current active session
-   */
   async setCurrentSession(sessionId: string): Promise<void> {
-    try {
-      await this.setToLocalStorage(
-        this.STORAGE_KEYS.CURRENT_SESSION,
-        sessionId
-      );
-    } catch (error) {
-      throw new Error(`Failed to set current session: ${error}`);
-    }
+    return withErrorHandling("set current session", async () => {
+      await this.setToLocalStorage(this.STORAGE_KEYS.CURRENT_SESSION, sessionId);
+    });
   }
 
-  /**
-   * Get current active session
-   */
   async getCurrentSession(): Promise<string | null> {
-    try {
-      const sessionId = await this.getFromLocalStorage(
-        this.STORAGE_KEYS.CURRENT_SESSION
-      );
+    return withErrorHandling("get current session", async () => {
+      const sessionId = await this.getFromLocalStorage(this.STORAGE_KEYS.CURRENT_SESSION);
       return sessionId || null;
-    } catch (error) {
-      throw new Error(`Failed to get current session: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Get storage quota information
-   */
   async getStorageQuota(): Promise<StorageQuota> {
-    try {
+    return withErrorHandling("get storage quota", async () => {
       if (this.isExtensionContext) {
         const localUsage = await chrome.storage.local.getBytesInUse();
         const syncUsage = await chrome.storage.sync.getBytesInUse();
 
-        // Chrome storage limits
-        const LOCAL_QUOTA = chrome.storage.local.QUOTA_BYTES || 5242880; // 5MB
-        const SYNC_QUOTA = chrome.storage.sync.QUOTA_BYTES || 102400; // 100KB
+        const LOCAL_QUOTA = chrome.storage.local.QUOTA_BYTES || 5242880;
+        const SYNC_QUOTA = chrome.storage.sync.QUOTA_BYTES || 102400;
 
         const totalUsed = localUsage + syncUsage;
         const totalAvailable = LOCAL_QUOTA + SYNC_QUOTA;
@@ -483,34 +387,19 @@ export class StorageService {
           percentage: (totalUsed / totalAvailable) * 100,
         };
       } else {
-        // Fallback for non-extension environment
-        const used = 0; // Can't calculate localStorage usage easily
-        const available = 5242880; // Assume 5MB available
-        return {
-          used,
-          available,
-          percentage: 0,
-        };
+        return { used: 0, available: 5242880, percentage: 0 };
       }
-    } catch (error) {
-      throw new Error(`Failed to get storage quota: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Clean up old conversations based on storage config
-   */
   async cleanupOldConversations(): Promise<number> {
-    try {
+    return withErrorHandling("cleanup conversations", async () => {
       const config = await this.getStorageConfig();
       const conversations = await this.loadAllConversations();
       const conversationList = Object.values(conversations);
 
-      // Sort by last activity (oldest first)
-      conversationList.sort(
-        (a, b) =>
-          new Date(a.lastActivity).getTime() -
-          new Date(b.lastActivity).getTime()
+      conversationList.sort((a, b) =>
+        new Date(a.lastActivity).getTime() - new Date(b.lastActivity).getTime()
       );
 
       let deletedCount = 0;
@@ -519,7 +408,6 @@ export class StorageService {
         now.getTime() - config.cleanupThresholdDays * 24 * 60 * 60 * 1000
       );
 
-      // Delete conversations older than threshold or exceeding max count
       for (let i = 0; i < conversationList.length; i++) {
         const conversation = conversationList[i];
         const shouldDelete =
@@ -533,91 +421,51 @@ export class StorageService {
       }
 
       return deletedCount;
-    } catch (error) {
-      throw new Error(`Failed to cleanup conversations: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Get storage configuration
-   */
   async getStorageConfig(): Promise<StorageConfig> {
-    try {
-      const config = await this.getFromStorage(
-        this.STORAGE_KEYS.STORAGE_CONFIG
-      );
+    return withErrorHandling("get storage config", async () => {
+      const config = await this.getFromStorage(this.STORAGE_KEYS.STORAGE_CONFIG);
       return config || this.DEFAULT_CONFIG;
-    } catch (error) {
-      throw new Error(`Failed to get storage config: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Update storage configuration
-   */
   async updateStorageConfig(config: Partial<StorageConfig>): Promise<void> {
-    try {
+    return withErrorHandling("update storage config", async () => {
       const currentConfig = await this.getStorageConfig();
       const updatedConfig = { ...currentConfig, ...config };
-
       await this.setToStorage(this.STORAGE_KEYS.STORAGE_CONFIG, updatedConfig);
-    } catch (error) {
-      throw new Error(`Failed to update storage config: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Clear all stored data (for testing or reset)
-   */
   async clearAllData(): Promise<void> {
-    try {
+    return withErrorHandling("clear all data", async () => {
       if (this.isExtensionContext) {
         await chrome.storage.local.clear();
         await chrome.storage.sync.clear();
       } else {
-        // Clear localStorage fallback
         localStorage.clear();
       }
-    } catch (error) {
-      throw new Error(`Failed to clear all data: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Export conversations for backup
-   */
   async exportConversations(): Promise<string> {
-    try {
+    return withErrorHandling("export conversations", async () => {
       const conversations = await this.loadAllConversations();
       return JSON.stringify(conversations, null, 2);
-    } catch (error) {
-      throw new Error(`Failed to export conversations: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Import conversations from backup
-   */
   async importConversations(data: string): Promise<void> {
-    try {
+    return withErrorHandling("import conversations", async () => {
       const conversations = JSON.parse(data);
-      await this.setToLocalStorage(
-        this.STORAGE_KEYS.CONVERSATIONS,
-        conversations
-      );
-    } catch (error) {
-      throw new Error(`Failed to import conversations: ${error}`);
-    }
+      await this.setToLocalStorage(this.STORAGE_KEYS.CONVERSATIONS, conversations);
+    });
   }
 
-  /**
-   * Save content scraping configuration
-   */
-  async saveContentScrapingConfig(
-    config: ContentScrapingConfig
-  ): Promise<void> {
-    try {
-      // Encrypt webhook URL and API key if present
+  async saveContentScrapingConfig(config: ContentScrapingConfig): Promise<void> {
+    return withErrorHandling("save content scraping config", async () => {
       const configToStore = {
         ...config,
         webhookUrl: config.webhookUrl
@@ -628,29 +476,15 @@ export class StorageService {
           : undefined,
       };
 
-      await this.setToStorage(
-        this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG,
-        configToStore
-      );
-    } catch (error) {
-      throw new Error(`Failed to save content scraping config: ${error}`);
-    }
+      await this.setToStorage(this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG, configToStore);
+    });
   }
 
-  /**
-   * Load content scraping configuration
-   */
   async loadContentScrapingConfig(): Promise<ContentScrapingConfig | null> {
-    try {
-      const storedConfig = await this.getFromStorage(
-        this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG
-      );
+    return withErrorHandling("load content scraping config", async () => {
+      const storedConfig = await this.getFromStorage(this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG);
+      if (!storedConfig) return null;
 
-      if (!storedConfig) {
-        return null;
-      }
-
-      // Decrypt webhook URL and API key
       const config: ContentScrapingConfig = {
         enabled: storedConfig.enabled || false,
         autoScrape: storedConfig.autoScrape || false,
@@ -677,16 +511,11 @@ export class StorageService {
       }
 
       return config;
-    } catch (error) {
-      throw new Error(`Failed to load content scraping config: ${error}`);
-    }
+    });
   }
 
-  /**
-   * Clear content scraping configuration
-   */
   async clearContentScrapingConfig(): Promise<void> {
-    try {
+    return withErrorHandling("clear content scraping config", async () => {
       if (this.isExtensionContext) {
         await chrome.storage.sync.remove([
           this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG,
@@ -694,10 +523,16 @@ export class StorageService {
       } else {
         localStorage.removeItem(this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG);
       }
-    } catch (error) {
-      throw new Error(`Failed to clear content scraping config: ${error}`);
-    }
+    });
   }
 }
 
 export default StorageService;
+
+
+async function withErrorHandling<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  return fn().catch((error) => {
+    console.error(`[${label}]`, error);
+    throw new Error(`Failed to ${label}: ${error.message || error}`);
+  });
+}
