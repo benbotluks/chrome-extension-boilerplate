@@ -286,12 +286,12 @@ export class BotpressService {
 
           return {
             id: conv.id,
-            url: "", // Will be populated from local storage
-            title: "", // Will be populated from local storage
+            url: "",
+            title: "",
             messages,
             conversationId: conv.id,
-            createdAt: new Date(conv.createdAt),
-            lastActivity: new Date(conv.updatedAt),
+            createdAt: new Date(conv.createdAt).toISOString(),
+            lastActivity: new Date(conv.updatedAt).toISOString(),
           };
         })
       );

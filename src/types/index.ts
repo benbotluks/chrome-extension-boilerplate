@@ -88,8 +88,8 @@ export interface ConversationSession {
   title: string;
   messages: ChatMessage[];
   conversationId?: string; // Botpress conversation ID
-  createdAt: Date;
-  lastActivity: Date;
+  createdAt: string;
+  lastActivity: string;
 }
 export interface StorageQuota {
   used: number;

@@ -92,9 +92,14 @@ export const useBotpressChat = (
 
       try {
         const sessions = await storageService.loadAllConversations();
-        const existingSession = Object.values(sessions).find(
+        const existingSessions = Object.values(sessions).filter(
           (session) => session.url === initialPageContext.url
         );
+
+        const existingSession = existingSessions.reduce((latest, current) => {
+          return !latest || current.lastActivity > latest.lastActivity ? current : latest;
+        }, null as ConversationSession | null);
+
 
         if (existingSession && existingSession.conversationId) {
           setState((prev) => ({
@@ -146,8 +151,8 @@ export const useBotpressChat = (
                   title: initialPageContext.title,
                   messages: updatedMessages,
                   conversationId: state.conversationId!,
-                  createdAt: new Date(), // This should be preserved from original
-                  lastActivity: new Date(),
+                  createdAt: new Date().toISOString(), // This should be preserved from original
+                  lastActivity: new Date().toISOString(),
                 };
 
                 storageService
@@ -285,8 +290,8 @@ export const useBotpressChat = (
             title: context.title,
             messages: [],
             conversationId: newConversationId,
-            createdAt: new Date(),
-            lastActivity: new Date(),
+            createdAt: new Date().toISOString(),
+            lastActivity: new Date().toISOString(),
           };
 
           await storageService.saveConversation(newSession);
