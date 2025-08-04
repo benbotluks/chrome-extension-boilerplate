@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { ContentExtractor } from "../services/ContentExtractor";
 import { ContentWebhookService } from "../services/ContentWebhookService";
 import { StorageService } from "../services/StorageService";
+import { useErrorHandler } from "./useErrorHandler";
 import type { ContentScrapingConfig, PageContent } from "../types";
 
 export interface UseContentScrapingReturn {
@@ -30,7 +31,8 @@ export function useContentScraping(getCurrentConversationId?: () => string | nul
   const [isExtracting, setIsExtracting] = useState(false);
   const [lastExtractedContent, setLastExtractedContent] =
     useState<PageContent | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  const { error, setError, clearError, withErrorHandling } = useErrorHandler();
 
   const storageService = StorageService.getInstance();
   const contentExtractor = ContentExtractor.getInstance();
@@ -38,42 +40,28 @@ export function useContentScraping(getCurrentConversationId?: () => string | nul
 
   // Load configuration on mount
   useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const savedConfig = await storageService.loadContentScrapingConfig();
-        if (savedConfig) {
-          setConfig(savedConfig);
-
-          // Configure webhook service if enabled
-          if (savedConfig.enabled && savedConfig.webhookUrl) {
-            webhookService.configure({
-              webhookUrl: savedConfig.webhookUrl,
-              enabled: savedConfig.enabled,
-              apiKey: savedConfig.apiKey,
-            });
-          }
+    withErrorHandling(async () => {
+      const savedConfig = await storageService.loadContentScrapingConfig();
+      if (savedConfig) {
+        setConfig(savedConfig);
+        if (savedConfig.enabled && savedConfig.webhookUrl) {
+          webhookService.configure({
+            webhookUrl: savedConfig.webhookUrl,
+            enabled: savedConfig.enabled,
+            apiKey: savedConfig.apiKey,
+          });
         }
-      } catch (error) {
-        console.error("Failed to load content scraping config:", error);
-        setError("Failed to load configuration");
       }
-    };
-
-    loadConfig();
-  }, [storageService, webhookService]);
+    }, { loadingState: false, errorMessage: "Failed to load configuration" });
+  }, [storageService, webhookService, withErrorHandling]);
 
   const configure = useCallback(
     async (newConfig: ContentScrapingConfig): Promise<boolean> => {
-      try {
-        setError(null);
-
-        // Validate configuration
+      const result = await withErrorHandling(async () => {
         if (newConfig.enabled && !newConfig.webhookUrl) {
-          setError("Webhook URL is required when content scraping is enabled");
-          return false;
+          throw new Error("Webhook URL is required when content scraping is enabled");
         }
 
-        // Test webhook connection if enabled
         if (newConfig.enabled && newConfig.webhookUrl) {
           webhookService.configure({
             webhookUrl: newConfig.webhookUrl,
@@ -83,93 +71,63 @@ export function useContentScraping(getCurrentConversationId?: () => string | nul
 
           const testResult = await webhookService.testConnection();
           if (!testResult.success) {
-            setError(`Webhook test failed: ${testResult.error}`);
-            return false;
+            throw new Error(`Webhook test failed: ${testResult.error}`);
           }
         }
 
-        // Save configuration
         await storageService.saveContentScrapingConfig(newConfig);
         setConfig(newConfig);
-
         return true;
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : "Configuration failed";
-        setError(errorMessage);
-        return false;
-      }
+      }, { loadingState: false });
+
+      return result ?? false;
     },
-    [storageService, webhookService]
+    [storageService, webhookService, withErrorHandling]
   );
 
   const testWebhook = useCallback(async (): Promise<boolean> => {
-    try {
-      setError(null);
-
-      if (!config?.webhookUrl) {
-        setError("No webhook URL configured");
-        return false;
-      }
+    const result = await withErrorHandling(async () => {
+      if (!config?.webhookUrl) throw new Error("No webhook URL configured");
 
       const testResult = await webhookService.testConnection();
-      if (!testResult.success) {
-        setError(`Webhook test failed: ${testResult.error}`);
-        return false;
-      }
+      if (!testResult.success) throw new Error(`Webhook test failed: ${testResult.error}`);
 
       return true;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Webhook test failed";
-      setError(errorMessage);
-      return false;
-    }
-  }, [config?.webhookUrl, webhookService]);
+    }, { loadingState: false });
+
+    return result ?? false;
+  }, [config?.webhookUrl, webhookService, withErrorHandling]);
 
   const extractContent = useCallback(async (conversationId?: string): Promise<PageContent | null> => {
-    try {
-      setError(null);
-      setIsExtracting(true);
+    setIsExtracting(true);
 
-      // Check if content extraction is available
+    const result = await withErrorHandling(async () => {
       const isAvailable = await contentExtractor.isAvailable();
-      if (!isAvailable) {
-        throw new Error("Content extraction not available in this environment");
+      if (!isAvailable) throw new Error("Content extraction not available in this environment");
+
+      const extractResult = await contentExtractor.extractCurrentPageContent();
+      if (!extractResult.success || !extractResult.content) {
+        throw new Error(extractResult.error || "Content extraction failed");
       }
 
-      // Extract content from current page
-      const result = await contentExtractor.extractCurrentPageContent();
-      console.log("the result is", result)
-
-      if (!result.success || !result.content) {
-        throw new Error(result.error || "Content extraction failed");
-      }
-
-      setLastExtractedContent(result.content);
+      setLastExtractedContent(extractResult.content);
 
       // Send to webhook if configured and enabled
       if (config?.enabled && webhookService.isEnabled()) {
         try {
-          await webhookService.sendPageContent(result.content, conversationId);
-          console.log("Content sent to webhook successfully");
+          await webhookService.sendPageContent(extractResult.content, conversationId);
         } catch (webhookError) {
           console.error("Failed to send content to webhook:", webhookError);
-          // Don't throw here - extraction was successful, webhook is optional
           setError("Content extracted but failed to send to webhook");
         }
       }
 
-      return result.content;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Content extraction failed";
-      setError(errorMessage);
-      return null;
-    } finally {
-      setIsExtracting(false);
-    }
-  }, [config?.enabled, contentExtractor, webhookService]);
+      return extractResult.content;
+    }, { loadingState: false });
+
+    setIsExtracting(false);
+    return result;
+  }, [config?.enabled, contentExtractor, webhookService, withErrorHandling, setError]);
 
   // Set up auto-scraping when tab changes (if enabled)
   useEffect(() => {
@@ -206,23 +164,20 @@ export function useContentScraping(getCurrentConversationId?: () => string | nul
       // Development mode - auto-scraping not available without Chrome APIs
       console.warn('Chrome extension APIs not available, auto-scraping disabled in development mode');
     }
-  }, [config?.enabled, config?.autoScrape, extractContent]);
+  }, [config?.enabled, config?.autoScrape, extractContent, getCurrentConversationId]);
 
   const enableAutoScraping = useCallback(
     async (enabled: boolean): Promise<void> => {
-      if (!config) {
-        throw new Error("No configuration found");
-      }
+      await withErrorHandling(async () => {
+        if (!config) throw new Error("No configuration found");
 
-      const updatedConfig = { ...config, autoScrape: enabled };
-      await configure(updatedConfig);
+        const updatedConfig = { ...config, autoScrape: enabled };
+        const success = await configure(updatedConfig);
+        if (!success) throw new Error("Failed to update auto-scraping configuration");
+      }, { loadingState: false });
     },
-    [config, configure]
+    [config, configure, withErrorHandling]
   );
-
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
 
   return {
     // Configuration

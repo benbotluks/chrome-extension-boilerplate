@@ -39,31 +39,24 @@ export const useErrorHandler = (): UseErrorHandlerReturn => {
             } = options;
 
             try {
-                // Clear any existing errors
                 setError(null);
 
-                // Set loading state if requested
                 if (loadingState) {
                     setIsLoading(true);
                 }
 
-                // Execute the async operation
                 const result = await asyncFn();
 
                 return result;
             } catch (err) {
-                // Format error message using ErrorUtils
                 const formattedError = errorMessage || ErrorUtils.formatUserMessage(err as ErrorInput);
                 setError(formattedError);
 
-                // Call custom error handler if provided
                 if (onError && err instanceof Error) {
                     onError(err);
                 }
-
                 return null;
             } finally {
-                // Always clear loading state
                 if (loadingState) {
                     setIsLoading(false);
                 }
