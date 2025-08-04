@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   BotpressConfig,
   BotpressUserSession,
@@ -5,6 +6,7 @@ import {
   StorageQuota,
   StorageConfig,
   EncryptedData,
+  ContentScrapingConfig,
 } from "../types";
 
 /**
@@ -19,6 +21,7 @@ export class StorageService {
     STORAGE_CONFIG: "storage_config",
     CURRENT_SESSION: "current_session",
     USER_SESSION: "user_session",
+    CONTENT_SCRAPING_CONFIG: "content_scraping_config",
   } as const;
 
   // Check if Chrome extension APIs are available
@@ -75,7 +78,7 @@ export class StorageService {
     cleanupThresholdDays: 30,
   };
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): StorageService {
     if (!StorageService.instance) {
@@ -237,6 +240,21 @@ export class StorageService {
       };
     } catch (error) {
       throw new Error(`Failed to load Botpress config: ${error}`);
+    }
+  }
+
+  /**
+   * Clear Botpress configuration
+   */
+  async clearBotpressConfig(): Promise<void> {
+    try {
+      if (this.isExtensionContext) {
+        await chrome.storage.sync.remove([this.STORAGE_KEYS.BOTPRESS_CONFIG]);
+      } else {
+        localStorage.removeItem(this.STORAGE_KEYS.BOTPRESS_CONFIG);
+      }
+    } catch (error) {
+      throw new Error(`Failed to clear Botpress config: ${error}`);
     }
   }
 
@@ -588,6 +606,95 @@ export class StorageService {
       );
     } catch (error) {
       throw new Error(`Failed to import conversations: ${error}`);
+    }
+  }
+
+  /**
+   * Save content scraping configuration
+   */
+  async saveContentScrapingConfig(
+    config: ContentScrapingConfig
+  ): Promise<void> {
+    try {
+      // Encrypt webhook URL and API key if present
+      const configToStore = {
+        ...config,
+        webhookUrl: config.webhookUrl
+          ? await this.encryptData(config.webhookUrl)
+          : "",
+        apiKey: config.apiKey
+          ? await this.encryptData(config.apiKey)
+          : undefined,
+      };
+
+      await this.setToStorage(
+        this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG,
+        configToStore
+      );
+    } catch (error) {
+      throw new Error(`Failed to save content scraping config: ${error}`);
+    }
+  }
+
+  /**
+   * Load content scraping configuration
+   */
+  async loadContentScrapingConfig(): Promise<ContentScrapingConfig | null> {
+    try {
+      const storedConfig = await this.getFromStorage(
+        this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG
+      );
+
+      if (!storedConfig) {
+        return null;
+      }
+
+      // Decrypt webhook URL and API key
+      const config: ContentScrapingConfig = {
+        enabled: storedConfig.enabled || false,
+        autoScrape: storedConfig.autoScrape || false,
+        webhookUrl: "",
+        apiKey: undefined,
+      };
+
+      if (storedConfig.webhookUrl) {
+        try {
+          config.webhookUrl = await this.decryptData(storedConfig.webhookUrl);
+        } catch (error) {
+          console.warn("Failed to decrypt webhook URL:", error);
+          config.webhookUrl = "";
+        }
+      }
+
+      if (storedConfig.apiKey) {
+        try {
+          config.apiKey = await this.decryptData(storedConfig.apiKey);
+        } catch (error) {
+          console.warn("Failed to decrypt API key:", error);
+          config.apiKey = undefined;
+        }
+      }
+
+      return config;
+    } catch (error) {
+      throw new Error(`Failed to load content scraping config: ${error}`);
+    }
+  }
+
+  /**
+   * Clear content scraping configuration
+   */
+  async clearContentScrapingConfig(): Promise<void> {
+    try {
+      if (this.isExtensionContext) {
+        await chrome.storage.sync.remove([
+          this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG,
+        ]);
+      } else {
+        localStorage.removeItem(this.STORAGE_KEYS.CONTENT_SCRAPING_CONFIG);
+      }
+    } catch (error) {
+      throw new Error(`Failed to clear content scraping config: ${error}`);
     }
   }
 }

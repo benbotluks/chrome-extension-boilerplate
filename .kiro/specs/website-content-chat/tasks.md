@@ -24,7 +24,7 @@
   - Write unit tests for service methods and error scenarios
   - _Requirements: 2.1, 2.2, 3.1, 3.2, 3.4_
 
-- [ ] 4. Build content extraction system
+- [x] 4. Build content extraction system
 
   - Create content script for DOM content extraction using Chrome scripting API
   - Implement ContentExtractor service to communicate with content scripts

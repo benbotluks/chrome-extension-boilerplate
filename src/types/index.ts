@@ -12,6 +12,13 @@ export interface BotpressConfig {
   isConfigured: boolean;
 }
 
+export interface ContentScrapingConfig {
+  enabled: boolean;
+  webhookUrl: string;
+  apiKey?: string;
+  autoScrape: boolean; // Whether to automatically scrape when tab changes
+}
+
 export interface BotpressUserSession {
   userKey: string | EncryptedData; // Support both legacy plain text and encrypted keys
   userId?: string;
@@ -20,6 +27,7 @@ export interface BotpressUserSession {
 }
 
 export interface PageMetadata {
+  title?: string
   author?: string;
   publishDate?: string;
   description?: string;

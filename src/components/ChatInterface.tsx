@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import SuggestedQuestions from './SuggestedQuestions';
+import { useContentScraping } from '../hooks/useContentScraping';
 import type { PageContent, ChatMessage } from '../types';
 
 interface ChatInterfaceProps {
@@ -32,6 +33,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   clearError,
 }) => {
   const [showContentPreview, setShowContentPreview] = useState(false);
+  const contentScraping = useContentScraping();
 
   // Redirect to configuration if not configured
   useEffect(() => {
@@ -118,6 +120,26 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </svg>
             </button>
           )}
+
+          {/* Content scraping button */}
+          {contentScraping.isConfigured && (
+            <button
+              onClick={contentScraping.extractContent}
+              className="flex items-center justify-center w-8 h-8 border-none rounded-md bg-transparent text-bootstrap-gray-600 cursor-pointer hover:bg-bootstrap-gray-200 hover:text-bootstrap-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed max-sm:w-7 max-sm:h-7"
+              title="Extract page content"
+              disabled={contentScraping.isExtracting || isLoading}
+            >
+              {contentScraping.isExtracting ? (
+                <div className="w-4 h-4 border-2 border-transparent border-t-current rounded-full animate-spin" />
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7,10 12,15 17,10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              )}
+            </button>
+          )}
           
           {conversationId && (
             <button
@@ -128,6 +150,20 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14"></path>
+              </svg>
+            </button>
+          )}
+
+          {/* Settings/Configuration button */}
+          {onConfigurationNeeded && (
+            <button
+              onClick={onConfigurationNeeded}
+              className="flex items-center justify-center w-8 h-8 border-none rounded-md bg-transparent text-bootstrap-gray-600 cursor-pointer hover:bg-bootstrap-gray-200 hover:text-bootstrap-gray-700 transition-all duration-200 max-sm:w-7 max-sm:h-7"
+              title="Settings"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
               </svg>
             </button>
           )}
@@ -167,6 +203,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           <button onClick={clearError} className="bg-none border-none text-lg text-danger-text cursor-pointer p-0 w-5 h-5 flex items-center justify-center">
             ×
           </button>
+        </div>
+      )}
+
+      {/* Content scraping error display */}
+      {contentScraping.error && (
+        <div className="bg-danger-bg text-danger-text px-4 py-3 flex items-center justify-between border-b border-danger-border text-sm max-sm:px-3 max-sm:py-2.5 max-sm:text-xs">
+          <span>Content Scraping: {contentScraping.error}</span>
+          <button onClick={contentScraping.clearError} className="bg-none border-none text-lg text-danger-text cursor-pointer p-0 w-5 h-5 flex items-center justify-center">
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Content scraping status */}
+      {contentScraping.isEnabled && contentScraping.lastExtractedContent && (
+        <div className="bg-success-bg text-success-text px-4 py-3 border-b border-success-border text-sm max-sm:px-3 max-sm:py-2.5 max-sm:text-xs">
+          <div className="flex items-center justify-between">
+            <span>✓ Content extracted and sent to webhook</span>
+            <span className="text-xs opacity-75">
+              {new Date(contentScraping.lastExtractedContent.extractedAt).toLocaleTimeString()}
+            </span>
+          </div>
         </div>
       )}
 

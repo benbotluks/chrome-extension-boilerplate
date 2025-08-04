@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../services/StorageService';
-import type { BotpressConfig } from '../types';
+import { useContentScraping } from '../hooks/useContentScraping';
+import type { BotpressConfig, ContentScrapingConfig } from '../types';
 
 
 let storageService: StorageService;
@@ -20,6 +21,15 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  
+  // Content scraping configuration
+  const [showContentScraping, setShowContentScraping] = useState(false);
+  const [contentScrapingEnabled, setContentScrapingEnabled] = useState(false);
+  const [contentWebhookUrl, setContentWebhookUrl] = useState('');
+  const [contentApiKey, setContentApiKey] = useState('');
+  const [autoScrape, setAutoScrape] = useState(false);
+  
+  const contentScraping = useContentScraping();
 
   useEffect(() => {
     // Load existing configuration on mount
@@ -39,6 +49,16 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       loadConfig();
     }
   }, [initialConfig]);
+
+  // Load content scraping configuration
+  useEffect(() => {
+    if (contentScraping.config) {
+      setContentScrapingEnabled(contentScraping.config.enabled);
+      setContentWebhookUrl(contentScraping.config.webhookUrl);
+      setContentApiKey(contentScraping.config.apiKey || '');
+      setAutoScrape(contentScraping.config.autoScrape);
+    }
+  }, [contentScraping.config]);
 
   const validateWebhookId = (id: string): boolean => {
     // Basic validation for webhook ID format
@@ -63,21 +83,71 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     setIsTestingConnection(true);
 
     try {
+      // Configure Botpress first
       const config: BotpressConfig = {
         webhookId: webhookId.trim(),
         isConfigured: true,
       };
 
-      // Test the configuration by attempting to configure the service
-      const success = await onConfigurationComplete(config);
-      if (!success) {
-        setError('Configuration test failed. Please check your webhook ID.');
+      const botpressSuccess = await onConfigurationComplete(config);
+      if (!botpressSuccess) {
+        setError('Botpress configuration test failed. Please check your webhook ID.');
+        return;
       }
+
+      // Configure content scraping if enabled
+      if (contentScrapingEnabled) {
+        if (!contentWebhookUrl.trim()) {
+          setError('Content webhook URL is required when content scraping is enabled');
+          return;
+        }
+
+        const contentConfig: ContentScrapingConfig = {
+          enabled: contentScrapingEnabled,
+          webhookUrl: contentWebhookUrl.trim(),
+          apiKey: contentApiKey.trim() || undefined,
+          autoScrape: autoScrape,
+        };
+
+        const contentSuccess = await contentScraping.configure(contentConfig);
+        if (!contentSuccess) {
+          setError(contentScraping.error || 'Content scraping configuration failed');
+          return;
+        }
+      }
+
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Configuration failed');
     } finally {
       setIsLoading(false);
       setIsTestingConnection(false);
+    }
+  };
+
+  const handleTestContentWebhook = async () => {
+    if (!contentWebhookUrl.trim()) {
+      setError('Please enter a webhook URL first');
+      return;
+    }
+
+    // Temporarily configure for testing
+    const tempConfig: ContentScrapingConfig = {
+      enabled: true,
+      webhookUrl: contentWebhookUrl.trim(),
+      apiKey: contentApiKey.trim() || undefined,
+      autoScrape: false,
+    };
+
+    await contentScraping.configure(tempConfig);
+    const success = await contentScraping.testWebhook();
+    
+    if (success) {
+      setError(null);
+      // Show success message briefly
+      const originalError = error;
+      setError('✓ Webhook connection successful!');
+      console.log("[ConfigurationPanel] content test successful")
+      setTimeout(() => setError(originalError), 3000);
     }
   };
 
@@ -127,6 +197,101 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           </div>
         )}
 
+        {/* Content Scraping Configuration */}
+        <div className="mb-6">
+          <button
+            type="button"
+            onClick={() => setShowContentScraping(!showContentScraping)}
+            className="flex items-center gap-2 text-sm font-semibold text-bootstrap-gray-700 hover:text-bootstrap-primary transition-colors duration-200"
+          >
+            <span className={`transform transition-transform duration-200 ${showContentScraping ? 'rotate-90' : ''}`}>▶</span>
+            Optional: Content Scraping
+          </button>
+          
+          {showContentScraping && (
+            <div className="mt-4 p-4 border border-bootstrap-gray-300 rounded-lg bg-bootstrap-gray-50">
+              <div className="mb-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={contentScrapingEnabled}
+                    onChange={(e) => setContentScrapingEnabled(e.target.checked)}
+                    className="w-4 h-4"
+                    disabled={isLoading}
+                  />
+                  <span className="font-medium text-bootstrap-gray-700">Enable content scraping</span>
+                </label>
+                <p className="mt-1 text-xs text-bootstrap-gray-600">
+                  Automatically extract webpage content and send it to a separate webhook
+                </p>
+              </div>
+
+              {contentScrapingEnabled && (
+                <>
+                  <div className="mb-4">
+                    <label htmlFor="contentWebhookUrl" className="block mb-2 text-sm font-medium text-bootstrap-gray-700">
+                      Content Webhook URL
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="contentWebhookUrl"
+                        type="url"
+                        value={contentWebhookUrl}
+                        onChange={(e) => setContentWebhookUrl(e.target.value)}
+                        placeholder="https://your-webhook-endpoint.com/content"
+                        className="flex-1 px-3 py-2 border border-bootstrap-gray-300 rounded-md text-sm focus:outline-none focus:border-bootstrap-primary focus:shadow-sm disabled:bg-bootstrap-gray-100 disabled:opacity-70"
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleTestContentWebhook}
+                        className="px-3 py-2 border border-bootstrap-gray-300 rounded-md text-sm font-medium text-bootstrap-gray-700 hover:bg-bootstrap-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                        disabled={isLoading || !contentWebhookUrl.trim()}
+                      >
+                        Test
+                      </button>
+                    </div>
+                    <p className="mt-1 text-xs text-bootstrap-gray-600">
+                      This webhook will receive extracted page content (separate from chat webhook)
+                    </p>
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="contentApiKey" className="block mb-2 text-sm font-medium text-bootstrap-gray-700">
+                      API Key (Optional)
+                    </label>
+                    <input
+                      id="contentApiKey"
+                      type="password"
+                      value={contentApiKey}
+                      onChange={(e) => setContentApiKey(e.target.value)}
+                      placeholder="Optional API key for webhook authentication"
+                      className="w-full px-3 py-2 border border-bootstrap-gray-300 rounded-md text-sm focus:outline-none focus:border-bootstrap-primary focus:shadow-sm disabled:bg-bootstrap-gray-100 disabled:opacity-70"
+                      disabled={isLoading}
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={autoScrape}
+                        onChange={(e) => setAutoScrape(e.target.checked)}
+                        className="w-4 h-4"
+                        disabled={isLoading}
+                      />
+                      <span className="font-medium text-bootstrap-gray-700">Auto-scrape on tab change</span>
+                    </label>
+                    <p className="mt-1 text-xs text-bootstrap-gray-600">
+                      Automatically extract content when you switch to a new tab
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-3 justify-end max-sm:flex-col">
           {onCancel && (
             <button
@@ -169,6 +334,27 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <li className="mb-1 text-sm leading-snug">Navigate to "Integrations" → "Webhook"</li>
           <li className="mb-1 text-sm leading-snug">Copy the webhook ID from the URL or settings</li>
         </ol>
+        
+        {/* Reset configuration for testing */}
+        <div className="mt-4 pt-3 border-t border-bootstrap-gray-300">
+          <button
+            type="button"
+            onClick={async () => {
+              if (confirm('Are you sure you want to reset all configuration? This will clear both Botpress and content scraping settings.')) {
+                try {
+                  await storageService.clearBotpressConfig();
+                  await storageService.clearContentScrapingConfig();
+                  window.location.reload();
+                } catch (error) {
+                  console.error('Failed to reset configuration:', error);
+                }
+              }
+            }}
+            className="text-xs text-bootstrap-gray-500 hover:text-red-600 transition-colors duration-200 underline"
+          >
+            Reset All Configuration
+          </button>
+        </div>
       </div>
     </div>
   );

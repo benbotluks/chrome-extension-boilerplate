@@ -86,6 +86,10 @@ function App() {
     }
   };
 
+  // const handleReconfigure = () => {
+  //   setCurrentView('configuration');
+  // };
+
   if (currentView === 'loading') {
     return (
       <div className="w-extension h-extension flex flex-col font-system antialiased bg-white overflow-hidden">
@@ -101,7 +105,12 @@ function App() {
 
   return (
     <div className="w-extension h-extension flex flex-col font-system antialiased bg-white overflow-hidden">
-      {currentView === 'chat' ? (
+      {currentView === 'configuration' ? (
+        <ConfigurationPanel
+          onConfigurationComplete={handleConfigurationComplete}
+          onCancel={isConfigured ? handleBackToChat : undefined}
+        />
+      ) : (
         <ChatInterface
           pageContent={pageContent}
           onConfigurationNeeded={handleConfigurationNeeded}
@@ -114,11 +123,6 @@ function App() {
           sendMessage={sendMessage}
           startNewConversation={startNewConversation}
           clearError={clearError}
-        />
-      ) : (
-        <ConfigurationPanel
-          onConfigurationComplete={handleConfigurationComplete}
-          onCancel={isConfigured ? handleBackToChat : undefined}
         />
       )}
     </div>
