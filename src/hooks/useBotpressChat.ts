@@ -1,22 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { botpressService } from "../services/BotpressService";
 import { StorageService } from "../services/StorageService";
+import { ServiceErrorWrapper } from "../utils/serviceErrorWrapper";
 import type {
   ChatMessage,
   ConversationSession,
   PageContent,
   BotpressConfig,
+  ChatState
 } from "../types";
-
-interface ChatState {
-  messages: ChatMessage[];
-  isLoading: boolean;
-  error: string | null;
-  conversationId: string | null;
-  isConfigured: boolean;
-  isListening: boolean;
-  isTyping: boolean;
-}
 
 interface UseBotpressChatReturn {
   // State
@@ -63,21 +55,28 @@ export const useBotpressChat = (
   useEffect(() => {
     const initializeConfiguration = async () => {
       console.log("Hook: Initializing configuration...");
-      try {
+
+      const result = await ServiceErrorWrapper.execute(async () => {
         storageService = StorageService.getInstance();
         const config = await storageService.loadBotpressConfig();
         if (config && config.isConfigured) {
           await botpressService.configure(config);
-          setState((prev) => ({ ...prev, isConfigured: true }));
+          return true;
         } else {
           console.log("Hook: No valid config found, staying unconfigured");
+          return false;
         }
-      } catch (error) {
-        console.error("Failed to initialize Botpress configuration:", error);
+      }, "useBotpressChat.initializeConfiguration");
+
+      if (ServiceErrorWrapper.isSuccess(result)) {
+        if (result.data) {
+          setState((prev) => ({ ...prev, isConfigured: true }));
+        }
+      } else {
+        console.error("Failed to initialize Botpress configuration:", result.error);
         setState((prev) => ({
           ...prev,
-          error:
-            "Failed to load configuration. Please reconfigure the extension.",
+          error: result.error!.userMessage,
         }));
       }
     };
@@ -90,7 +89,7 @@ export const useBotpressChat = (
     const loadExistingConversation = async () => {
       if (!initialPageContext || !state.isConfigured) return;
 
-      try {
+      const result = await ServiceErrorWrapper.execute(async () => {
         const sessions = await storageService.loadAllConversations();
         const existingSessions = Object.values(sessions).filter(
           (session) => session.url === initialPageContext.url
@@ -100,16 +99,17 @@ export const useBotpressChat = (
           return !latest || current.lastActivity > latest.lastActivity ? current : latest;
         }, null as ConversationSession | null);
 
+        return existingSession;
+      }, "useBotpressChat.loadExistingConversation");
 
-        if (existingSession && existingSession.conversationId) {
-          setState((prev) => ({
-            ...prev,
-            conversationId: existingSession.conversationId!,
-            messages: existingSession.messages,
-          }));
-        }
-      } catch (error) {
-        console.error("Failed to load existing conversation:", error);
+      if (ServiceErrorWrapper.isSuccess(result) && result.data && result.data.conversationId) {
+        setState((prev) => ({
+          ...prev,
+          conversationId: result.data!.conversationId!,
+          messages: result.data!.messages,
+        }));
+      } else if (ServiceErrorWrapper.isFailure(result)) {
+        console.error("Failed to load existing conversation:", result.error);
       }
     };
 
@@ -123,64 +123,58 @@ export const useBotpressChat = (
         return;
       }
 
-      try {
-        setState((prev) => ({ ...prev, isListening: true }));
-        isListeningRef.current = true;
+      setState((prev) => ({ ...prev, isListening: true }));
+      isListeningRef.current = true;
 
-        const result = await botpressService.startListening(
-          state.conversationId,
-          (message: ChatMessage) => {
-            // Update messages state when SSE events are received
-            setState((prev) => {
-              // Check if message already exists to prevent duplicates
-              const messageExists = prev.messages.some(
-                (existingMessage) => existingMessage.id === message.id
-              );
+      const sseResult = await botpressService.startListening(
+        state.conversationId!,
+        (message: ChatMessage) => {
+          // Update messages state when SSE events are received
+          setState((prev) => {
+            // Check if message already exists to prevent duplicates
+            const messageExists = prev.messages.some(
+              (existingMessage) => existingMessage.id === message.id
+            );
 
-              if (messageExists) {
-                return prev;
-              }
+            if (messageExists) {
+              return prev;
+            }
 
-              const updatedMessages = [...prev.messages, message];
+            const updatedMessages = [...prev.messages, message];
 
-              // Update conversation session in storage
-              if (initialPageContext) {
-                const updatedSession: ConversationSession = {
-                  id: state.conversationId!,
-                  url: initialPageContext.url,
-                  title: initialPageContext.title,
-                  messages: updatedMessages,
-                  conversationId: state.conversationId!,
-                  createdAt: new Date().toISOString(), // This should be preserved from original
-                  lastActivity: new Date().toISOString(),
-                };
-
-                storageService
-                  .saveConversation(updatedSession)
-                  .catch((error) => {
-                    console.error(
-                      "Failed to save conversation after SSE message:",
-                      error
-                    );
-                  });
-              }
-
-              return {
-                ...prev,
-                isTyping: false,
+            // Update conversation session in storage
+            if (initialPageContext) {
+              const updatedSession: ConversationSession = {
+                id: state.conversationId!,
+                url: initialPageContext.url,
+                title: initialPageContext.title,
                 messages: updatedMessages,
+                conversationId: state.conversationId!,
+                createdAt: new Date().toISOString(), // This should be preserved from original
+                lastActivity: new Date().toISOString(),
               };
-            });
-          }
-        );
 
-        if (!result.success) {
-          console.error("Failed to start SSE listening:", result.error);
-          setState((prev) => ({ ...prev, isListening: false }));
-          isListeningRef.current = false;
+              storageService
+                .saveConversation(updatedSession)
+                .catch((error) => {
+                  console.error(
+                    "Failed to save conversation after SSE message:",
+                    error
+                  );
+                });
+            }
+
+            return {
+              ...prev,
+              isTyping: false,
+              messages: updatedMessages,
+            };
+          });
         }
-      } catch (error) {
-        console.error("Error starting SSE listening:", error);
+      );
+
+      if (ServiceErrorWrapper.isFailure(sseResult)) {
+        console.error("Error starting SSE listening:", sseResult.error);
         setState((prev) => ({ ...prev, isListening: false }));
         isListeningRef.current = false;
       }
@@ -188,12 +182,13 @@ export const useBotpressChat = (
 
     const stopSSEListening = async () => {
       if (isListeningRef.current) {
-        try {
-          await botpressService.stopListening();
+        const result = await botpressService.stopListening();
+
+        if (ServiceErrorWrapper.isSuccess(result)) {
           setState((prev) => ({ ...prev, isListening: false }));
           isListeningRef.current = false;
-        } catch (error) {
-          console.error("Error stopping SSE listening:", error);
+        } else {
+          console.error("Error stopping SSE listening:", result.error);
         }
       }
     };
@@ -213,48 +208,40 @@ export const useBotpressChat = (
   const configure = useCallback(
     async (config: BotpressConfig): Promise<boolean> => {
       console.log("useBotpressChat configure called with:", config);
-      try {
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        // Test the configuration
-        console.log("Configuring botpressService...");
-        await botpressService.configure(config);
+      // Test the configuration
+      console.log("Configuring botpressService...");
+      await botpressService.configure(config);
 
-        console.log("Testing connection...");
-        const testResult = await botpressService.testConnection();
-        console.log("Test result:", testResult);
+      console.log("Testing connection...");
+      const testResult = await botpressService.testConnection();
+      console.log("Test result:", testResult);
 
-        if (!testResult.success) {
-          console.log("Configuration test failed:", testResult.error);
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: testResult.error?.message || "Configuration test failed",
-          }));
-          return false;
-        }
-
-        // Save configuration if test passes
-        console.log("Saving configuration...");
-        await storageService.saveBotpressConfig(config);
+      if (ServiceErrorWrapper.isFailure(testResult)) {
+        console.log("Configuration test failed:", testResult.error);
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          isConfigured: true,
-        }));
-
-        console.log("Configuration successful, isConfigured set to true");
-        return true;
-      } catch (error) {
-        console.error("Configuration error:", error);
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error:
-            error instanceof Error ? error.message : "Configuration failed",
+          error: testResult.error.userMessage,
         }));
         return false;
       }
+
+      // Save configuration if test passes
+      console.log("Saving configuration...");
+      await storageService.saveBotpressConfig(config);
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        isConfigured: true,
+      }));
+
+      console.log("Configuration successful");
+      return true;
+
+
     },
     []
   );
@@ -266,56 +253,44 @@ export const useBotpressChat = (
         return null;
       }
 
-      try {
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        const result = await botpressService.createConversation();
-        if (result.error) {
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: result.error!.message,
-          }));
-          return null;
-        }
-
-        const newConversationId = result.conversationId!;
-        const context = pageContext || initialPageContext;
-
-        // Create new conversation session
-        if (context) {
-          const newSession: ConversationSession = {
-            id: newConversationId,
-            url: context.url,
-            title: context.title,
-            messages: [],
-            conversationId: newConversationId,
-            createdAt: new Date().toISOString(),
-            lastActivity: new Date().toISOString(),
-          };
-
-          await storageService.saveConversation(newSession);
-        }
-
-        setState((prev) => ({
-          ...prev,
-          conversationId: newConversationId,
-          messages: [],
-          isLoading: false,
-        }));
-
-        return newConversationId;
-      } catch (error) {
+      const createResult = await botpressService.createConversation();
+      if (ServiceErrorWrapper.isFailure(createResult)) {
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to start conversation",
+          error: createResult.error.userMessage,
         }));
         return null;
       }
+
+      const newConversationId = createResult.data!;
+      const context = pageContext || initialPageContext;
+
+      // Create new conversation session
+      if (context) {
+        const newSession: ConversationSession = {
+          id: newConversationId,
+          url: context.url,
+          title: context.title,
+          messages: [],
+          conversationId: newConversationId,
+          createdAt: new Date().toISOString(),
+          lastActivity: new Date().toISOString(),
+        };
+
+        await storageService.saveConversation(newSession);
+      }
+
+      setState((prev) => ({
+        ...prev,
+        conversationId: newConversationId,
+        messages: [],
+        isLoading: false,
+      }));
+
+      return newConversationId;
     },
     [state.isConfigured, initialPageContext]
   );
@@ -334,44 +309,35 @@ export const useBotpressChat = (
         if (!currentConversationId) return;
       }
 
-      try {
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        // Don't add user message immediately - let SSE handle all message updates
-        // This prevents duplicate messages when SSE receives the same message from server
+      // Don't add user message immediately - let SSE handle all message updates
+      // This prevents duplicate messages when SSE receives the same message from server
 
-        // Send message to Botpress
-        const sendResult = await botpressService.sendMessage(
-          currentConversationId,
-          content
-        );
+      // Send message to Botpress
+      const sendResult = await botpressService.sendMessage(
+        currentConversationId!,
+        content
+      );
 
-        if (sendResult.error) {
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: sendResult.error!.message,
-          }));
-          return;
-        }
-
-        // Set loading to false and typing to true - SSE will handle all message updates
-        setState((prev) => {
-          console.log("Setting isTyping to true after sending message");
-          return {
-            ...prev,
-            isLoading: false,
-            isTyping: true,
-          };
-        });
-      } catch (error) {
+      if (ServiceErrorWrapper.isFailure(sendResult)) {
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          error:
-            error instanceof Error ? error.message : "Failed to send message",
+          error: sendResult.error.userMessage,
         }));
+        return;
       }
+
+      // Set loading to false and typing to true - SSE will handle all message updates
+      setState((prev) => {
+        console.log("Setting isTyping to true after sending message");
+        return {
+          ...prev,
+          isLoading: false,
+          isTyping: true,
+        };
+      });
     },
     [state.isConfigured, state.conversationId, startNewConversation]
   );
@@ -383,37 +349,24 @@ export const useBotpressChat = (
         return;
       }
 
-      try {
-        setState((prev) => ({ ...prev, isLoading: true, error: null }));
+      setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-        const messagesResult = await botpressService.getMessages(
-          conversationId
-        );
-        if (messagesResult.error) {
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: messagesResult.error!.message,
-          }));
-          return;
-        }
-
-        setState((prev) => ({
-          ...prev,
-          conversationId,
-          messages: messagesResult.messages || [],
-          isLoading: false,
-        }));
-      } catch (error) {
+      const messagesResult = await botpressService.getMessages(conversationId);
+      if (ServiceErrorWrapper.isFailure(messagesResult)) {
         setState((prev) => ({
           ...prev,
           isLoading: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to load conversation",
+          error: messagesResult.error.userMessage,
         }));
+        return;
       }
+
+      setState((prev) => ({
+        ...prev,
+        conversationId,
+        messages: messagesResult.data!,
+        isLoading: false,
+      }));
     },
     [state.isConfigured]
   );

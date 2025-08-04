@@ -66,8 +66,6 @@ export class StorageService {
   private async setToLocalStorage(key: string, value: any): Promise<void> {
     if (this.isExtensionContext) {
 
-      console.log(value)
-
       await chrome.storage.local.set({ [key]: value });
     } else {
       // Fallback to localStorage for development/testing

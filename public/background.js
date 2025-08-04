@@ -14,15 +14,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleWebhookRequest(data) {
   const { url, payload, headers } = data;
-
-  console.log("[background] sending request");
   try {
     const response = await fetch(url, {
       method: "POST",
       headers: headers || { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    console.log("[background]", response);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }

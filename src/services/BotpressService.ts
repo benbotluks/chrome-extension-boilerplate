@@ -4,17 +4,9 @@ import type {
   ChatMessage,
   ConversationSession,
   IncomingMessageEvent,
-  ServiceError,
-  ApiError,
-  NetworkError,
 } from "../types";
 import StorageService from "./StorageService";
-
-export interface BotpressServiceError {
-  type: "authentication" | "network" | "api_limit" | "validation" | "unknown";
-  message: string;
-  details?: ServiceError;
-}
+import { ServiceErrorWrapper, ServiceResult } from "../utils/serviceErrorWrapper";
 
 // Interface for the Botpress SignalListener
 interface SignalListener {
@@ -106,64 +98,38 @@ export class BotpressService {
   /**
    * Test the connection to Botpress
    */
-  async testConnection(): Promise<{
-    success: boolean;
-    error?: BotpressServiceError;
-  }> {
+  async testConnection(): Promise<ServiceResult<boolean>> {
     console.log("Testing connection...", {
       client: !!this.client,
       config: !!this.config,
     });
 
-    if (!this.client || !this.config) {
-      console.log("Service not configured");
-      return {
-        success: false,
-        error: {
-          type: "authentication",
-          message: "Service not configured. Please provide valid credentials.",
-        },
-      };
-    }
+    return ServiceErrorWrapper.execute(async () => {
+      if (!this.client || !this.config) {
+        console.log("Service not configured");
+        throw new Error("Service not configured. Please provide valid credentials.");
+      }
 
-    try {
       console.log("Attempting to list conversations...");
       // Test connection by attempting to get bot info
       const result = await this.client.listConversations({});
       console.log("Connection test successful:", result);
-      return { success: true };
-    } catch (error: ServiceError) {
-      console.error("Connection test failed:", error);
-      return {
-        success: false,
-        error: this.handleError(error),
-      };
-    }
+      return true;
+    }, "BotpressService.testConnection");
   }
 
   /**
    * Create a new conversation
    */
-  async createConversation(): Promise<{
-    conversationId?: string;
-    error?: BotpressServiceError;
-  }> {
-    if (!this.client || !this.config) {
-      return {
-        error: {
-          type: "authentication",
-          message: "Service not configured",
-        },
-      };
-    }
+  async createConversation(): Promise<ServiceResult<string>> {
+    return ServiceErrorWrapper.execute(async () => {
+      if (!this.client || !this.config) {
+        throw new Error("Service not configured");
+      }
 
-    try {
       const response = await this.client.createConversation({});
-
-      return { conversationId: response.conversation.id };
-    } catch (error: ServiceError) {
-      return { error: this.handleError(error) };
-    }
+      return response.conversation.id;
+    }, "BotpressService.createConversation");
   }
 
   /**
@@ -172,49 +138,30 @@ export class BotpressService {
   async sendMessage(
     conversationId: string,
     content: string
-  ): Promise<{ success: boolean; error?: BotpressServiceError }> {
-    if (!this.client || !this.config) {
-      return {
-        success: false,
-        error: {
-          type: "authentication",
-          message: "Service not configured",
-        },
-      };
-    }
+  ): Promise<ServiceResult<boolean>> {
+    return ServiceErrorWrapper.execute(async () => {
+      if (!this.client || !this.config) {
+        throw new Error("Service not configured");
+      }
 
-    try {
       await this.client.createMessage({
         conversationId,
         payload: { type: "text", text: content },
       });
 
-      return { success: true };
-    } catch (error: ServiceError) {
-      return {
-        success: false,
-        error: this.handleError(error),
-      };
-    }
+      return true;
+    }, "BotpressService.sendMessage");
   }
 
   /**
    * Get messages from a conversation
    */
-  async getMessages(conversationId: string): Promise<{
-    messages?: ChatMessage[];
-    error?: BotpressServiceError;
-  }> {
-    if (!this.client || !this.config) {
-      return {
-        error: {
-          type: "authentication",
-          message: "Service not configured",
-        },
-      };
-    }
+  async getMessages(conversationId: string): Promise<ServiceResult<ChatMessage[]>> {
+    return ServiceErrorWrapper.execute(async () => {
+      if (!this.client || !this.config) {
+        throw new Error("Service not configured");
+      }
 
-    try {
       const response = await this.client.listMessages({
         conversationId,
       });
@@ -234,7 +181,7 @@ export class BotpressService {
           } else {
             timestamp = new Date().toISOString();
           }
-        } catch (_) {
+        } catch (error) {
           console.error(
             "Invalid timestamp from Botpress message:",
             msg.createdAt
@@ -253,33 +200,23 @@ export class BotpressService {
         };
       });
 
-      return { messages };
-    } catch (error: ServiceError) {
-      return { error: this.handleError(error) };
-    }
+      return messages;
+    }, "BotpressService.getMessages");
   }
 
-  async listConversations(): Promise<{
-    conversations?: ConversationSession[];
-    error?: BotpressServiceError;
-  }> {
-    if (!this.client || !this.config) {
-      return {
-        error: {
-          type: "authentication",
-          message: "Service not configured",
-        },
-      };
-    }
+  async listConversations(): Promise<ServiceResult<ConversationSession[]>> {
+    return ServiceErrorWrapper.execute(async () => {
+      if (!this.client || !this.config) {
+        throw new Error("Service not configured");
+      }
 
-    try {
       const response = await this.client.listConversations({});
 
       const conversations: ConversationSession[] = await Promise.all(
         response.conversations.map(async (conv) => {
           // Get messages for each conversation to build the session
           const messagesResult = await this.getMessages(conv.id);
-          const messages = messagesResult.messages || [];
+          const messages = ServiceErrorWrapper.isSuccess(messagesResult) ? messagesResult.data : [];
 
           return {
             id: conv.id,
@@ -293,57 +230,38 @@ export class BotpressService {
         })
       );
 
-      return { conversations };
-    } catch (error: ServiceError) {
-      return { error: this.handleError(error) };
-    }
+      return conversations;
+    }, "BotpressService.listConversations");
   }
 
-  async deleteConversation(conversationId: string): Promise<{
-    success: boolean;
-    error?: BotpressServiceError;
-  }> {
-    if (!this.client || !this.config) {
-      return {
-        success: false,
-        error: {
-          type: "authentication",
-          message: "Service not configured",
-        },
-      };
-    }
+  async deleteConversation(conversationId: string): Promise<ServiceResult<boolean>> {
+    return ServiceErrorWrapper.execute(async () => {
+      if (!this.client || !this.config) {
+        throw new Error("Service not configured");
+      }
 
-    try {
       await this.client.deleteConversation({
         id: conversationId,
       });
 
-      return { success: true };
-    } catch (error: ServiceError) {
-      return {
-        success: false,
-        error: this.handleError(error),
-      };
-    }
+      return true;
+    }, "BotpressService.deleteConversation");
   }
 
   async startListening(
     conversationId: string,
     onMessage: (message: ChatMessage) => void
-  ): Promise<{ success: boolean; error?: BotpressServiceError }> {
-    if (!this.client || !this.config) {
-      return {
-        success: false,
-        error: {
-          type: "authentication",
-          message: "Service not configured",
-        },
-      };
-    }
+  ): Promise<ServiceResult<boolean>> {
+    return ServiceErrorWrapper.execute(async () => {
+      if (!this.client || !this.config) {
+        throw new Error("Service not configured");
+      }
 
-    try {
       // Stop any existing listener first
-      await this.stopListening();
+      const stopResult = await this.stopListening();
+      if (ServiceErrorWrapper.isFailure(stopResult)) {
+        console.warn("Failed to stop existing listener:", stopResult.error);
+      }
 
       // Start listening for events on the conversation
       this.listener = await this.client.listenConversation({
@@ -376,100 +294,21 @@ export class BotpressService {
         console.error("SSE connection error:", error);
       });
 
-      return { success: true };
-    } catch (error: ServiceError) {
-      return {
-        success: false,
-        error: this.handleError(error),
-      };
-    }
+      return true;
+    }, "BotpressService.startListening");
   }
 
-  async stopListening(): Promise<{
-    success: boolean;
-    error?: BotpressServiceError;
-  }> {
-    try {
+  async stopListening(): Promise<ServiceResult<boolean>> {
+    return ServiceErrorWrapper.execute(async () => {
       if (this.listener) {
         await this.listener.disconnect();
         this.listener = null;
       }
-      return { success: true };
-    } catch (error: ServiceError) {
-      return {
-        success: false,
-        error: this.handleError(error),
-      };
-    }
+      return true;
+    }, "BotpressService.stopListening");
   }
 
-  private handleError(error: ServiceError): BotpressServiceError {
-    // Type guard functions to safely check error properties
-    const hasStatus = (err: unknown): err is ApiError =>
-      typeof err === 'object' && err !== null && 'status' in err;
 
-    const hasMessage = (err: unknown): err is { message: string } =>
-      typeof err === 'object' && err !== null && 'message' in err;
-
-    const hasCode = (err: unknown): err is NetworkError =>
-      typeof err === 'object' && err !== null && 'code' in err;
-
-    // Network errors
-    if (hasCode(error) && error.code === "NETWORK_ERROR") {
-      return {
-        type: "network",
-        message: "Network error. Please check your internet connection.",
-        details: error,
-      };
-    }
-
-    if (hasMessage(error) && error.message.includes("fetch")) {
-      return {
-        type: "network",
-        message: "Network error. Please check your internet connection.",
-        details: error,
-      };
-    }
-
-    // Authentication errors
-    if (hasStatus(error) && (error.status === 401 || error.status === 403)) {
-      return {
-        type: "authentication",
-        message: "Authentication failed. Please check your credentials.",
-        details: error,
-      };
-    }
-
-    if (hasStatus(error) && error.status === 429) {
-      return {
-        type: "api_limit",
-        message: "API rate limit exceeded. Please try again later.",
-        details: error,
-      };
-    }
-
-    if (hasStatus(error) && error.status === 400) {
-      const message = hasMessage(error) ? error.message : "Invalid request data.";
-      return {
-        type: "validation",
-        message,
-        details: error,
-      };
-    }
-
-    let message = "An unexpected error occurred.";
-    if (hasMessage(error)) {
-      message = error.message;
-    } else if (error instanceof Error) {
-      message = error.message;
-    }
-
-    return {
-      type: "unknown",
-      message,
-      details: error,
-    };
-  }
 
   /**
    * Check if the service is properly configured

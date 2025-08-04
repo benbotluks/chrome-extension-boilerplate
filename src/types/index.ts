@@ -122,6 +122,17 @@ export interface IncomingMessageEvent {
   createdAt: string
 }
 
+export interface ChatState {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  error: string | null;
+  conversationId: string | null;
+  isConfigured: boolean;
+  isListening: boolean;
+  isTyping: boolean;
+}
+
+
 // Error handling types
 export interface ApiError {
   status?: number;

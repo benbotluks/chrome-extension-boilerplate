@@ -90,8 +90,6 @@ export class ContentWebhookService {
       if (this.config.apiKey) {
         headers["Authorization"] = `Bearer ${this.config.apiKey}`;
       }
-
-      // Use background script to send webhook request (bypasses CORS)
       const response = await this.sendWebhookViaBackground({
         url: this.config.webhookUrl,
         payload,
