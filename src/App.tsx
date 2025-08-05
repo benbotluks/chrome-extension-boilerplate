@@ -13,6 +13,7 @@ function App() {
   const [pageContent, setPageContent] = useState<PageContent | null>(null);
   const [contentExtractionError, setContentExtractionError] = useState<string | null>(null);
   const [currentConfig, setCurrentConfig] = useState<BotpressConfig | null>(null);
+  const [isManualNavigation, setIsManualNavigation] = useState(false);
 
   const {
     isConfigured,
@@ -39,7 +40,7 @@ function App() {
         // Try to extract page content
         const contentExtractor = ContentExtractor.getInstance();
         const isAvailable = await contentExtractor.isAvailable();
-        
+
         if (isAvailable) {
           const result = await contentExtractor.extractCurrentPageContent();
           if (result.success && result.content) {
@@ -58,19 +59,42 @@ function App() {
         setContentExtractionError(errorMessage);
         console.error('Error during content extraction:', error);
       }
-
-      // Determine which view to show
-      if (isConfigured) {
-        setCurrentView('chat');
-      } else {
-        setCurrentView('configuration');
-      }
     };
 
     if (currentView === 'loading') {
       initializeApp();
     }
-  }, [currentView, isConfigured]);
+  }, [currentView]);
+
+  // Handle initial view determination after loading
+  useEffect(() => {
+    if (currentView === 'loading' && currentConfig !== null) {
+      // Configuration has been loaded, determine initial view
+      console.log('App: Determining initial view - isConfigured:', isConfigured, 'currentConfig:', currentConfig);
+      if (isConfigured) {
+        console.log('App: Navigating to chat (configured)');
+        setCurrentView('chat');
+      } else {
+        console.log('App: Navigating to configuration (not configured)');
+        setCurrentView('configuration');
+      }
+    }
+  }, [currentView, currentConfig, isConfigured]);
+
+  // Handle automatic navigation when configuration status changes (but not during manual navigation)
+  useEffect(() => {
+    if (currentView !== 'loading' && !isManualNavigation) {
+      // Only auto-navigate if this isn't a manual navigation
+      if (!isConfigured && currentView !== 'configuration') {
+        console.log('App: Auto-navigating to configuration (configuration lost)');
+        setCurrentView('configuration');
+      }
+    }
+    // Reset manual navigation flag after effect runs
+    if (isManualNavigation) {
+      setIsManualNavigation(false);
+    }
+  }, [isConfigured, currentView, isManualNavigation]);
 
 
 
@@ -80,6 +104,8 @@ function App() {
     if (success) {
       // Update the current config state
       setCurrentConfig(config);
+      console.log('App: Configuration completed, navigating to chat');
+      setIsManualNavigation(true);
       setCurrentView('chat');
       return true;
     } else {
@@ -90,12 +116,16 @@ function App() {
 
   const handleConfigurationNeeded = () => {
     // Explicitly navigate to configuration page
+    console.log('App: Manual navigation to configuration requested');
+    setIsManualNavigation(true);
     setCurrentView('configuration');
   };
 
   const handleBackToChat = () => {
     // Only navigate to chat if bot is configured
     if (isConfigured) {
+      console.log('App: Manual navigation back to chat');
+      setIsManualNavigation(true);
       setCurrentView('chat');
     }
   };
@@ -158,7 +188,7 @@ function App() {
               </div>
             </div>
           )}
-          
+
           <ChatInterface
             pageContent={pageContent}
             onConfigurationNeeded={handleConfigurationNeeded}

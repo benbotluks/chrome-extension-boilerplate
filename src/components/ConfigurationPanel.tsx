@@ -331,8 +331,8 @@ const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         <ol className="m-0 pl-5 text-bootstrap-gray-600">
           <li className="mb-1 text-sm leading-snug">Go to your Botpress Cloud dashboard</li>
           <li className="mb-1 text-sm leading-snug">Select your bot</li>
-          <li className="mb-1 text-sm leading-snug">Navigate to "Integrations" → "Webhook"</li>
-          <li className="mb-1 text-sm leading-snug">Copy the webhook ID from the URL or settings</li>
+          <li className="mb-1 text-sm leading-snug">Navigate to "Integrations" → "Chat"</li>
+          <li className="mb-1 text-sm leading-snug">Copy the webhook ID from the URL</li>
         </ol>
         
         {/* Reset configuration for testing */}
