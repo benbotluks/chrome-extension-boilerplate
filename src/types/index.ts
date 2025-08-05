@@ -60,8 +60,8 @@ export interface PageContent {
   domain: string;
   contentType: ContentType;
   extractedText: string;
-  metadata: PageMetadata;
   extractedAt: string;
+  metadata?: PageMetadata;
 }
 
 export interface ContentExtractionResult {

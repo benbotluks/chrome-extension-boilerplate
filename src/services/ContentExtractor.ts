@@ -230,7 +230,7 @@ function extractContentFromPage(): ContentExtractionResult {
     console.log('[extractContentFromPage] Current URL:', window.location.href);
     console.log('[extractContentFromPage] Extracted metadata URL:', metadata.url);
 
-    // Limit content size (approximate 5000 characters)
+    // Limit content size (conservative 3000 characters to stay under 4KB total)
     const maxLength = 5000;
     const truncatedContent =
       textContent.length > maxLength
@@ -243,9 +243,23 @@ function extractContentFromPage(): ContentExtractionResult {
       domain: metadata.domain || "",
       contentType: contentType,
       extractedText: truncatedContent,
-      metadata: metadata,
+      // metadata: metadata,
       extractedAt: new Date().toISOString(),
     };
+
+    // Validate payload size (4KB = 4096 bytes)
+    const payloadSize = new TextEncoder().encode(JSON.stringify(pageContent)).length;
+    const maxPayloadSize = 4096; // 4KB
+
+    if (payloadSize > maxPayloadSize) {
+      // If still too large, further truncate the extracted text
+      const overhead = payloadSize - maxPayloadSize;
+      const newTextLength = Math.max(0, truncatedContent.length - overhead - 100); // Extra buffer
+
+      pageContent.extractedText = truncatedContent.substring(0, newTextLength) + "...";
+
+      console.warn(`[extractContentFromPage] Payload too large (${payloadSize} bytes), truncated to fit under 4KB`);
+    }
 
     return {
       success: true,
@@ -334,13 +348,6 @@ export class ContentExtractor {
     }
   }
 
-
-
-
-
-  /**
-   * Test if content extraction is available
-   */
   public async isAvailable(): Promise<boolean> {
     try {
       // Content extraction requires Chrome extension APIs
@@ -350,3 +357,8 @@ export class ContentExtractor {
     }
   }
 }
+
+
+// async const serviceWrapper<T>(fn: , ) => {
+
+// }
