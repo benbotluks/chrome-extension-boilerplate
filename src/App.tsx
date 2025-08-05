@@ -65,16 +65,7 @@ function App() {
     }
   }, [currentView, isConfigured]);
 
-  // Handle configuration state changes
-  useEffect(() => {
-    if (currentView !== 'loading') {
-      if (isConfigured && currentView !== 'chat') {
-        setCurrentView('chat');
-      } else if (!isConfigured && currentView !== 'configuration') {
-        setCurrentView('configuration');
-      }
-    }
-  }, [isConfigured, currentView]);
+
 
 
   const handleConfigurationComplete = async (config: BotpressConfig): Promise<boolean> => {
@@ -89,10 +80,12 @@ function App() {
   };
 
   const handleConfigurationNeeded = () => {
+    // Explicitly navigate to configuration page
     setCurrentView('configuration');
   };
 
   const handleBackToChat = () => {
+    // Only navigate to chat if bot is configured
     if (isConfigured) {
       setCurrentView('chat');
     }
