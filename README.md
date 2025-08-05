@@ -1,88 +1,123 @@
-# React Chrome Extension Template
+# Website Content Chat Extension
 
-This is a template for creating a Chrome extension using React and [Vite](https://vitejs.dev/) with TypeScript.
+A Chrome extension that allows users to chat with their Botpress bot about the content of any website. The extension automatically extracts webpage content and provides an interactive chat interface for discussing, summarizing, and analyzing web pages.
 
+## Features
 
-## Getting Started
+- **Automatic Content Extraction**: Extracts text content, metadata, and structure from any webpage
+- **Botpress Integration**: Connect to your Botpress bot using webhook ID for real-time conversations
+- **Real-time Chat**: Server-sent events (SSE) for live message streaming and typing indicators
+- **Conversation Persistence**: Saves chat history and associates conversations with specific URLs
+- **Smart Content Processing**: Intelligently filters out navigation, ads, and irrelevant content
+- **Content Type Detection**: Recognizes articles, products, documentation, blogs, and generic pages
+- **Error Handling**: Comprehensive error handling with user-friendly messages and retry options
 
-### Prerequisites
+## Prerequisites
 
-Make sure you have [Node.js](https://nodejs.org/) (version 18+ or 20+) installed on your machine.
+- [Node.js](https://nodejs.org/) (version 18+ or 20+)
+- [pnpm](https://pnpm.io/) package manager
+- A Botpress bot with webhook configured
 
-### Setup
+## Setup
 
-1. Clone or fork the repository :
+1. Install dependencies:
+   ```sh
+   pnpm install
+   ```
 
-    ```sh
-    # To clone
-    git clone https://github.com/5tigerjelly/chrome-extension-react-template
-    cd chrome-extension-react-template
-    ```
+2. Build the extension:
+   ```sh
+   pnpm build
+   ```
 
-2. Install the dependencies:
+3. Load in Chrome:
+   - Open `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked" and select the `build` directory
 
-    ```sh
-    pnpm install
-    ```
+## Configuration
 
-## 🏗️ Development
+1. Click the extension icon to open the popup
+2. Enter your Botpress webhook ID in the configuration panel
+3. The extension will test the connection and save your settings
+4. Start chatting about any webpage content
 
-To start the development server:
+## Development
+
+### Available Scripts
 
 ```sh
-pnpm dev
+pnpm dev      # Start development server (content extraction disabled)
+pnpm build    # Build for production
+pnpm lint     # Run ESLint
+pnpm test     # Run tests with Vitest
+pnpm preview  # Preview production build
 ```
-
-This will start the Vite development server and open your default browser.
-
-## 📦 Build 
-
-To create a production build:
-
-```sh
-pnpm build
-```
-
-This will generate the build files in the `build` directory.
-
-## 📂 Load Extension in Chrome
-
-1. Open Chrome and navigate to `chrome://extensions/`.
-2. Enable "Developer mode" using the toggle switch in the top right corner.
-3. Click "Load unpacked" and select the `build` directory.
-
-Your React app should now be loaded as a Chrome extension!
-
-## 🔧 Troubleshooting
-
-### Content Extraction Issues
-
-If you're seeing the extension's internal URL (like `dmjbbhpfbckkihpmmfdgkhfhdokjeegl/index.html`) instead of the actual webpage URL:
-
-1. **Make sure the extension is properly built and loaded**: Content extraction only works when the extension is built (`pnpm build`) and loaded as an unpacked extension in Chrome. It will not work in development mode (`pnpm dev`).
-
-2. **Check browser console**: Open the browser's developer tools (F12) and check the console for any error messages related to content extraction.
-
-3. **Verify permissions**: Ensure the extension has the necessary permissions in `manifest.json`:
-   - `"activeTab"` - to access the current tab
-   - `"scripting"` - to inject content scripts
-   - `"host_permissions": ["http://*/*", "https://*/*"]` - to access web pages
-
-4. **Test on a regular webpage**: Content extraction won't work on browser internal pages (like `chrome://` URLs). Test on a regular website like `https://example.com`.
 
 ### Development vs Production
 
-- **Development mode** (`pnpm dev`): Content extraction is disabled and will show an appropriate error message
-- **Production mode** (built extension): Full content extraction functionality is available
+- **Development mode** (`pnpm dev`): Content extraction shows placeholder messages since Chrome extension APIs aren't available
+- **Production mode** (built extension): Full content extraction and chat functionality
 
-## 🗂️ Project Structure
+## Architecture
 
-- `public/`: Contains static files and the `manifest.json`.
-- `src/`: Contains the React app source code.
-- `vite.config.ts`: Vite configuration file.
-- `tsconfig.json`: TypeScript configuration file.
-- `package.json`: Contains the project dependencies and scripts.
+### Core Services
 
-## License
+- **BotpressService**: Handles Botpress Chat API integration with SSE support
+- **ContentExtractor**: Extracts and processes webpage content using Chrome scripting API
+- **StorageService**: Manages Chrome extension storage for configuration and conversations
+- **ServiceErrorWrapper**: Provides consistent error handling across all services
 
-This project is licensed under the MIT License.
+### Key Components
+
+- **App**: Main application with loading, configuration, and chat views
+- **ChatInterface**: Real-time chat interface with message history
+- **ConfigurationPanel**: Botpress webhook configuration and testing
+- **Message Components**: Typed message rendering for user and bot messages
+
+### Technology Stack
+
+- **React 18.3.1** with TypeScript
+- **Vite 5.3.1** for build tooling
+- **Botpress Chat SDK** for bot integration
+- **Tailwind CSS** for styling
+- **Chrome Extension Manifest V3**
+
+## Permissions
+
+The extension requires these Chrome permissions:
+- `storage` - Save configuration and conversation history
+- `activeTab` - Access current tab content
+- `scripting` - Inject content extraction scripts
+- `host_permissions` - Access all websites for content extraction
+
+## Troubleshooting
+
+### Content Extraction Issues
+
+1. **Build and load the extension**: Content extraction only works in production mode
+2. **Check permissions**: Ensure the extension has necessary permissions in Chrome
+3. **Test on regular websites**: Won't work on `chrome://` or extension internal pages
+4. **Check console**: Look for error messages in browser developer tools
+
+### Botpress Connection Issues
+
+1. **Verify webhook ID**: Ensure your Botpress webhook ID is correct
+2. **Check bot status**: Make sure your Botpress bot is published and accessible
+3. **Network connectivity**: Verify internet connection and firewall settings
+
+## Project Structure
+
+```
+├── public/
+│   ├── manifest.json          # Chrome extension manifest
+│   └── background.js          # Service worker
+├── src/
+│   ├── components/            # React components
+│   ├── hooks/                 # Custom React hooks
+│   ├── services/              # Core business logic
+│   ├── types/                 # TypeScript type definitions
+│   ├── utils/                 # Utility functions
+│   └── App.tsx               # Main application component
+└── .kiro/specs/              # Feature specifications
+```
