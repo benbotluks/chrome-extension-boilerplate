@@ -3,6 +3,7 @@ import ChatInterface from './components/ChatInterface';
 import ConfigurationPanel from './components/ConfigurationPanel';
 import { useBotpressChat } from './hooks/useBotpressChat';
 import { ContentExtractor } from './services/ContentExtractor';
+import { StorageService } from './services/StorageService';
 import type { PageContent, BotpressConfig } from './types';
 
 type AppView = 'loading' | 'configuration' | 'chat';
@@ -11,6 +12,7 @@ function App() {
   const [currentView, setCurrentView] = useState<AppView>('loading');
   const [pageContent, setPageContent] = useState<PageContent | null>(null);
   const [contentExtractionError, setContentExtractionError] = useState<string | null>(null);
+  const [currentConfig, setCurrentConfig] = useState<BotpressConfig | null>(null);
 
   const {
     isConfigured,
@@ -29,7 +31,12 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // Try to extract page content first
+        // Load current configuration first
+        const storageService = StorageService.getInstance();
+        const config = await storageService.loadBotpressConfig();
+        setCurrentConfig(config);
+
+        // Try to extract page content
         const contentExtractor = ContentExtractor.getInstance();
         const isAvailable = await contentExtractor.isAvailable();
         
@@ -71,6 +78,8 @@ function App() {
   const handleConfigurationComplete = async (config: BotpressConfig): Promise<boolean> => {
     const success = await configure(config);
     if (success) {
+      // Update the current config state
+      setCurrentConfig(config);
       setCurrentView('chat');
       return true;
     } else {
@@ -128,6 +137,7 @@ function App() {
         <ConfigurationPanel
           onConfigurationComplete={handleConfigurationComplete}
           onCancel={isConfigured ? handleBackToChat : undefined}
+          initialConfig={currentConfig || undefined}
         />
       ) : (
         <>
